@@ -1,0 +1,576 @@
+{% extends "base.html" %}
+
+{% block title %}Lab 0: Data Quality Audit & Profiler{% endblock %}
+{% block page_title %}Lab 0: Data Ingestion, Profiling & Quality Audit{% endblock %}
+
+{% block content %}
+<div class="lab-header" style="margin-bottom: 24px;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <span class="badge badge-primary">DWM Core Lab 0</span>
+        <span class="badge badge-success">Production Dataset: 59,606 Rows</span>
+      </div>
+      <h2 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 4px;">
+        Automated Data Profiler & Hygiene Inspector
+      </h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Statistical moments, distribution audits, target leakage boundary checks, and schema validation.
+      </p>
+    </div>
+    
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="/api/academic/profile/export?table={{ selected_table_key }}&format=csv" class="btn btn-secondary btn-sm" id="btnExportCsv">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Export Profile (CSV)
+      </a>
+      <a href="/api/academic/profile/export?table={{ selected_table_key }}&format=json" class="btn btn-secondary btn-sm" id="btnExportJson">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        Export Profile (JSON)
+      </a>
+      <a href="/academic/labs/schema-explorer" class="btn btn-primary btn-sm">
+        Next: Warehouse Schemas (Labs 1–3) →
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Table Selector Switcher -->
+<div class="glass-card" style="margin-bottom: 24px; padding: 14px 20px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span style="font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);">
+        Select Target Table:
+      </span>
+      <div class="table-switcher-pills" style="display: flex; flex-wrap: wrap; gap: 8px;">
+        {% for t in catalog %}
+        <a href="/academic/lab-0?table={{ t.key }}" 
+           class="switcher-pill {% if selected_table_key == t.key %}active{% endif %}"
+           title="{{ t.type }}: {{ t.rows }} rows, {{ t.cols }} cols">
+          <span class="pill-dot {% if 'Fact' in t.name %}dot-fact{% elif 'Dim' in t.name %}dot-dim{% else %}dot-src{% endif %}"></span>
+          {{ t.name.split(' (')[0] }}
+          <span class="pill-badge">{{ t.rows|string }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-grid" style="margin-bottom: 24px;">
+  <div class="kpi-card">
+    <div class="kpi-label">Total Records</div>
+    <div class="kpi-value">{{ "{:,}".format(profile.summary.total_rows) }}</div>
+    <div class="kpi-subtext">Rows verified in SQLite / CSV</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Schema Attributes</div>
+    <div class="kpi-value">{{ profile.summary.total_columns }}</div>
+    <div class="kpi-subtext">{{ profile.summary.numeric_columns_count }} Numeric · {{ profile.summary.categorical_columns_count }} Categorical</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Missing Values (Nulls)</div>
+    <div class="kpi-value" style="color: {% if profile.summary.missing_cells == 0 %}#34d399{% else %}#fb7185{% endif %};">
+      {{ "{:,}".format(profile.summary.missing_cells) }}
+    </div>
+    <div class="kpi-subtext">{{ profile.summary.missing_cell_pct }}% of all matrix cells</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Duplicate Rows</div>
+    <div class="kpi-value" style="color: {% if profile.summary.duplicate_rows == 0 %}#34d399{% else %}#f59e0b{% endif %};">
+      {{ profile.summary.duplicate_rows }}
+    </div>
+    <div class="kpi-subtext">100% Unique Grain Integrity</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Table Category</div>
+    <div class="kpi-value" style="font-size: 1.15rem; color: var(--cyan-light);">
+      {{ profile.table_type }}
+    </div>
+    <div class="kpi-subtext">{{ profile.table_display_name }}</div>
+  </div>
+</div>
+
+<!-- Academic Interpretation & Viva Revision Box -->
+<div class="glass-card" style="margin-bottom: 24px; border-left: 4px solid var(--cyan-primary);">
+  <div style="display: flex; gap: 14px; align-items: flex-start;">
+    <div style="background: rgba(14, 165, 233, 0.15); border-radius: var(--radius-sm); padding: 8px; color: var(--cyan-light); font-size: 1.25rem;">
+      💡
+    </div>
+    <div style="flex: 1;">
+      <h4 style="font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 6px;">
+        What Does This Mean? (Viva-Voce Academic Interpretation)
+      </h4>
+      <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px;">
+        {{ academic.what_does_this_mean }}
+      </p>
+
+      <!-- Technical Details Accordion -->
+      <details style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 10px 14px;">
+        <summary style="cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--cyan-light);">
+          ⚙️ Technical Details & Mathematical Formulas Applied (Click to expand)
+        </summary>
+        <div style="margin-top: 10px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.7;">
+          <p style="margin-bottom: 6px;">{{ academic.technical_moments }}</p>
+          <ul style="padding-left: 20px;">
+            <li><strong>Interquartile Range (IQR):</strong> \(IQR = Q_3 - Q_1\). Measures statistical spread immune to logistics tail delays.</li>
+            <li><strong>Fisher-Pearson Skewness:</strong> \(g_1 = \frac{n}{(n-1)(n-2)} \sum \left(\frac{x_i - \bar{x}}{s}\right)^3\). Quantifies delay distribution asymmetry.</li>
+            <li><strong>Zero PII Rule:</strong> Strict masking/exclusion of customer names, email, and password hashes prevents compliance leakage.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<!-- Profiling Charts Row -->
+<div class="grid-2-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+  <!-- Missing Values Distribution Chart -->
+  <div class="glass-card">
+    <div class="card-header" style="margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 0.95rem;">Missing-Value Percentage by Column</h3>
+        <p class="card-subtitle">Zero or low null percentages indicate clean pipelines</p>
+      </div>
+    </div>
+    <div style="height: 240px; position: relative;">
+      <canvas id="missingChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Data Type Distribution Chart -->
+  <div class="glass-card">
+    <div class="card-header" style="margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 0.95rem;">Schema Data-Type Distribution</h3>
+        <p class="card-subtitle">Numeric continuous vs discrete categorical features</p>
+      </div>
+    </div>
+    <div style="height: 240px; position: relative;">
+      <canvas id="typeChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Dynamic Exploratory Distribution Charts (Feature Selectors) -->
+<div class="grid-2-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+  <!-- Categorical Frequency Chart -->
+  <div class="glass-card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 0.95rem;">Categorical Frequency Distribution</h3>
+        <p class="card-subtitle">Top 10 most frequent distinct values</p>
+      </div>
+      <div>
+        <select id="selectCategoricalCol" class="form-select form-select-sm" style="font-size: 0.8rem; background: #0f172a; color: #fff; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 4px 8px;">
+          <!-- Populated via JS -->
+        </select>
+      </div>
+    </div>
+    <div style="height: 250px; position: relative;">
+      <canvas id="catFreqChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Numerical Histogram Chart -->
+  <div class="glass-card">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 0.95rem;">Numerical Distribution Histogram</h3>
+        <p class="card-subtitle">10-bin equal-width interval distribution</p>
+      </div>
+      <div>
+        <select id="selectNumericalCol" class="form-select form-select-sm" style="font-size: 0.8rem; background: #0f172a; color: #fff; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 4px 8px;">
+          <!-- Populated via JS -->
+        </select>
+      </div>
+    </div>
+    <div style="height: 250px; position: relative;">
+      <canvas id="numHistChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Column Profiling Table -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h3 class="card-title">
+        <span class="card-icon">📋</span>
+        Detailed Column Profiling & Statistical Moments
+      </h3>
+      <p class="card-subtitle">Mean, Median, Standard Deviation, IQR, Skewness, and Quality Flags for {{ profile.table_display_name }}</p>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <input type="text" id="colSearchInput" placeholder="Filter columns..." style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 12px; font-size: 0.82rem; color: #fff;">
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="data-table" id="colProfilesTable">
+      <thead>
+        <tr>
+          <th>Column Name</th>
+          <th>Type</th>
+          <th>Non-Null</th>
+          <th>Missing %</th>
+          <th>Distinct</th>
+          <th>Mean / Top Value</th>
+          <th>Median / Top %</th>
+          <th>IQR (Q3-Q1)</th>
+          <th>Skewness</th>
+          <th>Quality Indicators</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for col in profile.column_profiles %}
+        <tr class="col-profile-row" data-name="{{ col.name|lower }}">
+          <td style="font-weight: 700; color: #fff;">
+            {{ col.name }}
+          </td>
+          <td>
+            <span class="badge badge-neutral" style="font-size: 0.72rem; font-family: var(--font-mono);">
+              {{ col.data_type }}
+            </span>
+          </td>
+          <td style="font-family: var(--font-mono);">{{ "{:,}".format(col.non_null_count) }}</td>
+          <td style="font-family: var(--font-mono); color: {% if col.missing_pct > 0 %}#fb7185{% else %}#34d399{% endif %};">
+            {{ col.missing_pct }}%
+          </td>
+          <td style="font-family: var(--font-mono);">{{ "{:,}".format(col.unique_count) }}</td>
+          
+          {% if col.is_numeric and col.numeric_stats %}
+            <td style="font-family: var(--font-mono); color: var(--cyan-light);">{{ col.numeric_stats.mean }}</td>
+            <td style="font-family: var(--font-mono);">{{ col.numeric_stats.median }}</td>
+            <td style="font-family: var(--font-mono); color: #38bdf8;">{{ col.numeric_stats.iqr }}</td>
+            <td style="font-family: var(--font-mono); color: #a78bfa;">{{ col.numeric_stats.skewness }}</td>
+          {% elif col.categorical_stats %}
+            <td style="font-size: 0.82rem; color: #f8fafc;" title="{{ col.categorical_stats.top_value }}">
+              {{ col.categorical_stats.top_value[:24] }}{% if col.categorical_stats.top_value|length > 24 %}...{% endif %}
+            </td>
+            <td style="font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-dim);">
+              {{ col.categorical_stats.top_percentage }}% ({{ "{:,}".format(col.categorical_stats.top_count) }})
+            </td>
+            <td style="color: var(--text-dim); text-align: center;">—</td>
+            <td style="color: var(--text-dim); text-align: center;">—</td>
+          {% else %}
+            <td style="color: var(--text-dim);">—</td>
+            <td style="color: var(--text-dim);">—</td>
+            <td style="color: var(--text-dim);">—</td>
+            <td style="color: var(--text-dim);">—</td>
+          {% endif %}
+
+          <td>
+            {% if col.warnings %}
+              {% for w in col.warnings %}
+                <span class="badge badge-{{ w.level }}" style="margin: 2px 0;">
+                  {{ w.label }}
+                </span>
+              {% endfor %}
+            {% else %}
+              <span class="badge badge-success">Clean</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Dataset Real Rows Preview (Paginated, Searchable, No PII) -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h3 class="card-title">
+        <span class="card-icon">🔍</span>
+        Verified Dataset Preview (Sanitized Real Records)
+      </h3>
+      <p class="card-subtitle">Real rows extracted directly from SQLite / CSV storage. Strict zero-PII compliance.</p>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <input type="text" id="previewFilterInput" placeholder="Search preview records..." style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-subtle); border-radius: 6px; padding: 6px 12px; font-size: 0.82rem; color: #fff;">
+      <span style="font-size: 0.8rem; color: var(--text-dim);" id="previewPaginationInfo">Showing 1–10 of 50</span>
+      <button class="btn btn-secondary btn-sm" id="btnPrevPage" style="padding: 4px 8px;">◀</button>
+      <button class="btn btn-secondary btn-sm" id="btnNextPage" style="padding: 4px 8px;">▶</button>
+    </div>
+  </div>
+
+  <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+    <table class="data-table" id="previewTable">
+      <thead>
+        <tr>
+          {% for col in profile.preview_columns %}
+          <th style="white-space: nowrap;">{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody id="previewTableBody">
+        <!-- Rendered dynamically by JavaScript with client pagination -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const profileData = {{ profile|tojson }};
+  const previewRows = profileData.preview_rows || [];
+  const previewCols = profileData.preview_columns || [];
+  let currentPage = 1;
+  const pageSize = 10;
+  let filteredRows = [...previewRows];
+
+  // 1. Missing Values Chart
+  const missingData = profileData.missing_chart_data.slice(0, 15);
+  const ctxMissing = document.getElementById('missingChart').getContext('2d');
+  new Chart(ctxMissing, {
+    type: 'bar',
+    data: {
+      labels: missingData.map(d => d.column),
+      datasets: [{
+        label: 'Missing %',
+        data: missingData.map(d => d.missing_pct),
+        backgroundColor: missingData.map(d => d.missing_pct > 0 ? '#fb7185' : '#34d399'),
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, max: 10, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // 2. Data Type Distribution Doughnut Chart
+  const typeDist = profileData.type_distribution || {};
+  const ctxType = document.getElementById('typeChart').getContext('2d');
+  new Chart(ctxType, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(typeDist),
+      datasets: [{
+        data: Object.values(typeDist),
+        backgroundColor: ['#38bdf8', '#818cf8', '#34d399', '#f59e0b'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } }
+      }
+    }
+  });
+
+  // 3. Dynamic Categorical Distribution Chart
+  const catColumns = profileData.column_profiles.filter(c => !c.is_numeric && c.categorical_stats);
+  const selectCat = document.getElementById('selectCategoricalCol');
+  let catChart = null;
+
+  catColumns.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name;
+    opt.textContent = c.name;
+    selectCat.appendChild(opt);
+  });
+
+  function updateCatChart(colName) {
+    const col = catColumns.find(c => c.name === colName);
+    if (!col || !col.categorical_stats) return;
+    const dist = col.categorical_stats.distribution || [];
+    const labels = dist.map(d => d.value.length > 20 ? d.value.substring(0, 18) + '…' : d.value);
+    const counts = dist.map(d => d.count);
+
+    if (catChart) catChart.destroy();
+    const ctx = document.getElementById('catFreqChart').getContext('2d');
+    catChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Frequency Count',
+          data: counts,
+          backgroundColor: '#38bdf8',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          x: { ticks: { color: '#94a3b8', font: { size: 9 }, maxRotation: 45 }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  if (catColumns.length > 0) {
+    selectCat.value = catColumns[0].name;
+    updateCatChart(catColumns[0].name);
+    selectCat.addEventListener('change', (e) => updateCatChart(e.target.value));
+  }
+
+  // 4. Dynamic Numerical Histogram Chart
+  const numColumns = profileData.column_profiles.filter(c => c.is_numeric && c.numeric_stats && c.numeric_stats.histogram);
+  const selectNum = document.getElementById('selectNumericalCol');
+  let numChart = null;
+
+  numColumns.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name;
+    opt.textContent = c.name;
+    selectNum.appendChild(opt);
+  });
+
+  function updateNumChart(colName) {
+    const col = numColumns.find(c => c.name === colName);
+    if (!col || !col.numeric_stats || !col.numeric_stats.histogram) return;
+    const hist = col.numeric_stats.histogram;
+
+    if (numChart) numChart.destroy();
+    const ctx = document.getElementById('numHistChart').getContext('2d');
+    numChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: hist.bins,
+        datasets: [{
+          label: 'Frequency (Count)',
+          data: hist.counts,
+          backgroundColor: '#818cf8',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          x: { ticks: { color: '#94a3b8', font: { size: 9 }, maxRotation: 45 }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  if (numColumns.length > 0) {
+    selectNum.value = numColumns[0].name;
+    updateNumChart(numColumns[0].name);
+    selectNum.addEventListener('change', (e) => updateNumChart(e.target.value));
+  }
+
+  // 5. Column Search Filter
+  const colSearch = document.getElementById('colSearchInput');
+  colSearch.addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    document.querySelectorAll('.col-profile-row').forEach(row => {
+      const name = row.getAttribute('data-name');
+      row.style.display = name.includes(query) ? '' : 'none';
+    });
+  });
+
+  // 6. Preview Table Pagination & Filter
+  function renderPreviewTable() {
+    const tbody = document.getElementById('previewTableBody');
+    tbody.innerHTML = '';
+    const start = (currentPage - 1) * pageSize;
+    const end = Math.min(start + pageSize, filteredRows.length);
+
+    for (let i = start; i < end; i++) {
+      const row = filteredRows[i];
+      const tr = document.createElement('tr');
+      previewCols.forEach(col => {
+        const td = document.createElement('td');
+        td.style.whiteSpace = 'nowrap';
+        td.style.fontSize = '0.78rem';
+        td.style.fontFamily = 'var(--font-mono)';
+        td.textContent = row[col] !== undefined ? row[col] : '';
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+
+    const info = document.getElementById('previewPaginationInfo');
+    info.textContent = filteredRows.length === 0 ? 'No matching rows' : `Showing ${start + 1}–${end} of ${filteredRows.length}`;
+    document.getElementById('btnPrevPage').disabled = (currentPage === 1);
+    document.getElementById('btnNextPage').disabled = (end >= filteredRows.length);
+  }
+
+  document.getElementById('btnPrevPage').addEventListener('click', () => {
+    if (currentPage > 1) { currentPage--; renderPreviewTable(); }
+  });
+  document.getElementById('btnNextPage').addEventListener('click', () => {
+    if (currentPage * pageSize < filteredRows.length) { currentPage++; renderPreviewTable(); }
+  });
+
+  document.getElementById('previewFilterInput').addEventListener('input', (e) => {
+    const query = e.target.value.toLowerCase().trim();
+    if (!query) {
+      filteredRows = [...previewRows];
+    } else {
+      filteredRows = previewRows.filter(row => {
+        return Object.values(row).some(val => String(val).toLowerCase().includes(query));
+      });
+    }
+    currentPage = 1;
+    renderPreviewTable();
+  });
+
+  renderPreviewTable();
+</script>
+
+<style>
+.switcher-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: var(--transition);
+}
+.switcher-pill:hover {
+  background: rgba(30, 41, 59, 0.9);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.switcher-pill.active {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: var(--cyan-primary);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(14, 165, 233, 0.25);
+}
+.pill-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.dot-fact { background: #38bdf8; }
+.dot-dim { background: #a78bfa; }
+.dot-src { background: #34d399; }
+.pill-badge {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+}
+</style>
+{% endblock %}

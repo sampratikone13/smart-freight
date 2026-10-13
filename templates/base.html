@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Smart Freight{% endblock %} | Intelligent Logistics Platform</title>
+  <meta name="description" content="College Mini-Project: Smart Freight Shipping Days Prediction and DWM Academic Analytics Platform.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-wrapper">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="1" y="3" width="15" height="13"></rect>
+            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Smart Freight</h1>
+          <span>Logistics AI & DWM</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">Core Application</div>
+        <a href="{{ url_for('index') }}" class="nav-link {% if request.path == '/' %}active{% endif %}" id="nav-home">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          Overview
+        </a>
+        <a href="{{ url_for('predict_page') }}" class="nav-link {% if request.path == '/predict_page' %}active{% endif %}" id="nav-predict">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          Shipping Predictor
+          <span class="badge-nav">Live</span>
+        </a>
+        <a href="{{ url_for('batch_predict') }}" class="nav-link {% if request.path == '/batch_predict' %}active{% endif %}" id="nav-batch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          Batch Prediction
+        </a>
+        <a href="{{ url_for('dashboard') }}" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}" id="nav-dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Analytics Dashboard
+        </a>
+
+        <div class="nav-section-title" style="color: #38bdf8; font-weight: 800; letter-spacing: 0.05em;">COLLEGE CURRICULUM</div>
+        <a href="/college-labs/1" class="nav-link {% if '/college-labs' in request.path %}active{% endif %}" id="nav-college-mode" style="background: rgba(14, 165, 233, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); color: #fff; font-weight: 700; margin-bottom: 8px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          College Lab Mode
+          <span class="badge-nav" style="background: #0284c7; color: #fff; font-weight: 800;">Labs 1–10</span>
+        </a>
+
+        <div class="nav-section-title" style="color: var(--text-dim);">Advanced Analysis (Optional Studio)</div>
+        <a href="{{ url_for('academic_lab') }}" class="nav-link {% if request.path == '/academic' %}active{% endif %}" id="nav-academic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+          Advanced DWM Hub
+        </a>
+        <a href="/academic/lab-0" class="nav-link {% if request.path == '/academic/lab-0' %}active{% endif %}" id="nav-lab-0" style="padding-left: 32px; font-size: 0.84rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width: 15px; height: 15px;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+          Lab 0: Data Quality
+          <span class="badge-nav" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Active</span>
+        </a>
+        <a href="/academic/labs/schema-explorer" class="nav-link {% if '/schema-explorer' in request.path %}active{% endif %}" id="nav-schema-explorer" style="padding-left: 32px; font-size: 0.84rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width: 15px; height: 15px;"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          Labs 1–3: Warehouse
+          <span class="badge-nav" style="background: rgba(14, 165, 233, 0.2); color: var(--cyan-light);">Active</span>
+        </a>
+        <a href="/academic/labs/classification" class="nav-link {% if '/classification' in request.path %}active{% endif %}" id="nav-classification" style="padding-left: 32px; font-size: 0.84rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width: 15px; height: 15px;"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          Labs 4–5: Classification
+          <span class="badge-nav" style="background: rgba(167, 139, 250, 0.2); color: #c4b5fd;">Active</span>
+        </a>
+        <a href="/academic/labs/regression" class="nav-link {% if '/regression' in request.path %}active{% endif %}" id="nav-regression" style="padding-left: 32px; font-size: 0.84rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width: 15px; height: 15px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          Lab 6: Regression
+          <span class="badge-nav" style="background: rgba(56, 189, 248, 0.2); color: var(--cyan-light);">Active</span>
+        </a>
+        <a href="/academic/labs/clustering" class="nav-link {% if '/clustering' in request.path %}active{% endif %}" id="nav-clustering" style="padding-left: 32px; font-size: 0.84rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width: 15px; height: 15px;"><circle cx="12" cy="12" r="3"></circle><circle cx="6" cy="6" r="2"></circle><circle cx="18" cy="6" r="2"></circle><circle cx="6" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg>
+          Lab 7: Cohort Segmentation
+          <span class="badge-nav" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">Active</span>
+        </a>
+        <a href="/academic/labs/association-rules" class="nav-link {% if '/association-rules' in request.path %}active{% endif %}" id="nav-association-rules" style="padding-left: 32px; font-size: 0.84rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width: 15px; height: 15px;"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+          Lab 8: Market Basket
+          <span class="badge-nav" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">Active</span>
+        </a>
+        <a href="/academic/labs/olap" class="nav-link {% if '/olap' in request.path %}active{% endif %}" id="nav-olap" style="padding-left: 32px; font-size: 0.84rem;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width: 15px; height: 15px;"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          Lab 9: OLAP Analytics
+          <span class="badge-nav" style="background: rgba(6, 182, 212, 0.2); color: var(--cyan-light);">Active</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        {% if session.get('user') %}
+          <div class="user-snippet">
+            <div class="user-avatar">{{ session['user'][0]|upper }}</div>
+            <div class="user-info">
+              <div class="user-name">{{ session['user'] }}</div>
+              <div class="user-role">Research Analyst</div>
+            </div>
+            <a href="{{ url_for('logout') }}" title="Logout" style="color: var(--text-dim); text-decoration: none;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            </a>
+          </div>
+        {% else %}
+          <div style="display: flex; gap: 8px;">
+            <a href="{{ url_for('login') }}" class="btn btn-secondary btn-sm" style="flex: 1;">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm" style="flex: 1;">Sign Up</a>
+          </div>
+        {% endif %}
+      </div>
+    </aside>
+
+    <!-- Main Viewport -->
+    <main class="main-content">
+      <header class="top-bar">
+        <div class="top-title">
+          <button id="mobileMenuToggle" class="btn btn-secondary btn-sm" style="display: none; padding: 6px 10px;" aria-label="Toggle menu">☰</button>
+          <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+          <span class="live-badge" id="liveBadge">
+            <span class="live-pulse"></span>
+            <span id="liveBadgeText">Production ML Pipeline Active</span>
+          </span>
+        </div>
+        <div class="top-actions">
+          <a href="{{ url_for('predict_page') }}" class="btn btn-primary btn-sm">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            New Prediction
+          </a>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, msg in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible">
+                {{ msg }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

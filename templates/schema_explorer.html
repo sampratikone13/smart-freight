@@ -1,0 +1,772 @@
+{% extends "base.html" %}
+
+{% block title %}Labs 1–3: Data Warehouse & Schema Explorer{% endblock %}
+{% block page_title %}Labs 1–3: Logistics Data Warehouse & Multidimensional Schemas{% endblock %}
+
+{% block content %}
+<div class="lab-header" style="margin-bottom: 24px;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <span class="badge badge-primary">DWM Practical Labs 1–3</span>
+        <span class="badge badge-success" id="warehouseIntegrityBadge">FactOrders = Source CSV (59,606 Rows)</span>
+      </div>
+      <h2 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 4px;">
+        Multidimensional Logistics Warehouse & Schema Architect
+      </h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Interactive Star, Snowflake, and Constellation (Galaxy) schema visualizer rendered dynamically from SQLite metadata.
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+      <button class="btn btn-secondary btn-sm" id="btnRefreshWarehouse">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        <span id="refreshBtnText">Refresh Warehouse ETL</span>
+      </button>
+      <a href="/academic/lab-0" class="btn btn-secondary btn-sm">
+        ← Lab 0: Data Profiler
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Warehouse Verification & Lineage KPI Bar -->
+<div class="kpi-grid" style="margin-bottom: 24px;">
+  <div class="kpi-card">
+    <div class="kpi-label">FactOrders Grain</div>
+    <div class="kpi-value" style="color: var(--cyan-light);" id="kpiFactOrders">
+      {{ "{:,}".format(meta.table_counts.FactOrders) }}
+    </div>
+    <div class="kpi-subtext">Order-line grain (100% source match)</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Constellation Performance Fact</div>
+    <div class="kpi-value" style="color: #a78bfa;" id="kpiFactPerf">
+      {{ "{:,}".format(meta.table_counts.FactShippingPerformance) }}
+    </div>
+    <div class="kpi-subtext">Aggregated shipment metrics</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Conformed Dimensions</div>
+    <div class="kpi-value" style="color: #34d399;">5 Dimensions</div>
+    <div class="kpi-subtext">Date, Geo, Product, Customer, Shipping</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Last ETL Load</div>
+    <div class="kpi-value" style="font-size: 1rem; font-family: var(--font-mono); color: var(--text-main);" id="kpiEtlTime">
+      {{ meta.load_timestamp.split('T')[1].split('.')[0] if 'T' in meta.load_timestamp else meta.load_timestamp }}
+    </div>
+    <div class="kpi-subtext">Duration: {{ meta.duration_seconds }}s · Status: OK</div>
+  </div>
+</div>
+
+<!-- Schema View Mode Selector Tabs -->
+<div class="glass-card" style="margin-bottom: 24px; padding: 12px 18px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div class="schema-tabs" style="display: flex; gap: 10px;">
+      <button class="schema-tab-btn active" data-schema="star" onclick="switchSchemaTab('star')">
+        <span class="tab-icon">⭐</span>
+        Star Schema
+      </button>
+      <button class="schema-tab-btn" data-schema="snowflake" onclick="switchSchemaTab('snowflake')">
+        <span class="tab-icon">❄️</span>
+        Snowflake Schema
+      </button>
+      <button class="schema-tab-btn" data-schema="galaxy" onclick="switchSchemaTab('galaxy')">
+        <span class="tab-icon">🌌</span>
+        Fact Constellation (Galaxy)
+      </button>
+      <button class="schema-tab-btn" data-schema="matrix" onclick="switchSchemaTab('matrix')">
+        <span class="tab-icon">📊</span>
+        Schema Comparison Matrix
+      </button>
+    </div>
+    <div style="font-size: 0.8rem; color: var(--text-dim);">
+      💡 Click any table node to inspect schema & sample records
+    </div>
+  </div>
+</div>
+
+<!-- Schema Container Area -->
+<div class="schema-container" style="position: relative; margin-bottom: 24px;">
+
+  <!-- 1. Star Schema Canvas -->
+  <div id="schemaViewStar" class="schema-view-panel active">
+    <div class="glass-card" style="padding: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">Star Schema Architecture</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">
+            Single centralized FactOrders table with direct, denormalized 1-to-many dimensional relationships.
+          </p>
+        </div>
+        <span class="badge badge-primary">Optimal for OLAP Query Speed</span>
+      </div>
+
+      <div class="diagram-canvas star-layout">
+        <!-- Dimensions Left -->
+        <div class="diagram-column">
+          <div class="node-card dim-node" onclick="openTableDrawer('DimDate')">
+            <div class="node-header"><span class="node-tag dim-tag">DIM</span> DimDate</div>
+            <div class="node-body">
+              <div class="node-stat">Rows: <strong id="star-cnt-DimDate">{{ "{:,}".format(meta.table_counts.DimDate) }}</strong></div>
+              <div class="node-key">PK: date_key</div>
+            </div>
+          </div>
+          <div class="connector-line"></div>
+          <div class="node-card dim-node" onclick="openTableDrawer('DimGeography')">
+            <div class="node-header"><span class="node-tag dim-tag">DIM</span> DimGeography</div>
+            <div class="node-body">
+              <div class="node-stat">Rows: <strong id="star-cnt-DimGeography">{{ "{:,}".format(meta.table_counts.DimGeography) }}</strong></div>
+              <div class="node-key">PK: geography_key</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Fact -->
+        <div class="diagram-center">
+          <div class="node-card fact-node" onclick="openTableDrawer('FactOrders')">
+            <div class="node-header">
+              <span class="node-tag fact-tag">FACT</span>
+              <strong>FactOrders</strong>
+            </div>
+            <div class="node-body">
+              <div class="node-stat" style="font-size: 1.1rem; color: var(--cyan-light);">
+                Rows: <strong id="star-cnt-FactOrders">{{ "{:,}".format(meta.table_counts.FactOrders) }}</strong>
+              </div>
+              <div class="node-key" style="margin-top: 4px;">PK: fact_order_key</div>
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 6px; line-height: 1.5;">
+                FK: date_key, geography_key, product_key, customer_key, shipping_key
+              </div>
+              <div style="font-size: 0.72rem; color: var(--emerald-success); margin-top: 6px;">
+                Measures: actual_days, scheduled_days, sales, discount, profit
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dimensions Right -->
+        <div class="diagram-column">
+          <div class="node-card dim-node" onclick="openTableDrawer('DimProduct')">
+            <div class="node-header"><span class="node-tag dim-tag">DIM</span> DimProduct</div>
+            <div class="node-body">
+              <div class="node-stat">Rows: <strong id="star-cnt-DimProduct">{{ "{:,}".format(meta.table_counts.DimProduct) }}</strong></div>
+              <div class="node-key">PK: product_key</div>
+            </div>
+          </div>
+          <div class="node-card dim-node" onclick="openTableDrawer('DimCustomer')">
+            <div class="node-header"><span class="node-tag dim-tag">DIM</span> DimCustomer</div>
+            <div class="node-body">
+              <div class="node-stat">Rows: <strong id="star-cnt-DimCustomer">{{ "{:,}".format(meta.table_counts.DimCustomer) }}</strong></div>
+              <div class="node-key">PK: customer_key (Zero-PII)</div>
+            </div>
+          </div>
+          <div class="node-card dim-node" onclick="openTableDrawer('DimShipping')">
+            <div class="node-header"><span class="node-tag dim-tag">DIM</span> DimShipping</div>
+            <div class="node-body">
+              <div class="node-stat">Rows: <strong id="star-cnt-DimShipping">{{ "{:,}".format(meta.table_counts.DimShipping) }}</strong></div>
+              <div class="node-key">PK: shipping_key</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Viva Explanation for Star Schema -->
+      <div class="academic-explainer" style="margin-top: 20px;">
+        <h4>⭐ Academic Interpretation: Star Schema Design</h4>
+        <p>
+          The Star Schema is the standard dimensional design for logistics analytics. By placing <code>FactOrders</code> at the center and directly connecting completely denormalized dimension tables, analytical queries require simple 1-level <code>INNER JOIN</code> operations. This provides maximum query execution speed and intuitive business slicing across dimensions without navigating normalized parent-child entity hierarchies.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Snowflake Schema Canvas -->
+  <div id="schemaViewSnowflake" class="schema-view-panel">
+    <div class="glass-card" style="padding: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">Snowflake Schema Architecture</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">
+            Normalized dimensional hierarchies eliminate data redundancy across geography and merchandise catalogs.
+          </p>
+        </div>
+        <span class="badge badge-warning">Zero Redundancy (3NF Normalized Dimensions)</span>
+      </div>
+
+      <div class="diagram-canvas snowflake-layout">
+        <!-- Snowflake Chains -->
+        <div class="snowflake-chain-box">
+          <div class="chain-title">🌐 Normalized Geography Hierarchy:</div>
+          <div class="chain-nodes">
+            <div class="node-card subdim-node" onclick="openTableDrawer('DimGeography')">
+              <div class="node-header">City Node</div>
+              <div class="node-body"><span class="node-key">order_city</span></div>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node-card subdim-node" onclick="openTableDrawer('DimGeography')">
+              <div class="node-header">State Node</div>
+              <div class="node-body"><span class="node-key">order_state</span></div>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node-card subdim-node" onclick="openTableDrawer('DimGeography')">
+              <div class="node-header">Country Node</div>
+              <div class="node-body"><span class="node-key">order_country</span></div>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node-card subdim-node" onclick="openTableDrawer('DimGeography')">
+              <div class="node-header">Region Node</div>
+              <div class="node-body"><span class="node-key">order_region</span></div>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node-card subdim-node" onclick="openTableDrawer('DimGeography')">
+              <div class="node-header">Market Node</div>
+              <div class="node-body"><span class="node-key">Market</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="snowflake-chain-box" style="margin-top: 16px;">
+          <div class="chain-title">📦 Normalized Product Hierarchy:</div>
+          <div class="chain-nodes">
+            <div class="node-card subdim-node" onclick="openTableDrawer('DimProduct')">
+              <div class="node-header">Product Node</div>
+              <div class="node-body"><span class="node-key">product_name</span></div>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node-card subdim-node" onclick="openTableDrawer('DimProduct')">
+              <div class="node-header">Category Node</div>
+              <div class="node-body"><span class="node-key">category_name</span></div>
+            </div>
+            <span class="arrow">→</span>
+            <div class="node-card subdim-node" onclick="openTableDrawer('DimProduct')">
+              <div class="node-header">Department Node</div>
+              <div class="node-body"><span class="node-key">department_name</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Viva Explanation for Snowflake Schema -->
+      <div class="academic-explainer" style="margin-top: 20px;">
+        <h4>❄️ Academic Interpretation: Snowflake Schema Design</h4>
+        <p>
+          In a Snowflake Schema, dimensions with natural hierarchies (such as <code>Market → Region → Country → State → City</code> and <code>Department → Category → Product</code>) are decomposed into normalized lookup tables (3rd Normal Form). While this eliminates attribute storage redundancy and update anomalies, it introduces multi-table join penalties during analytical aggregation compared to the Star Schema.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Fact Constellation (Galaxy) Canvas -->
+  <div id="schemaViewGalaxy" class="schema-view-panel">
+    <div class="glass-card" style="padding: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">Fact Constellation (Galaxy) Architecture</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">
+            Multiple business fact tables sharing conformed dimensions across discrete operational grains.
+          </p>
+        </div>
+        <span class="badge badge-success">Conformed Multi-Fact Enterprise Design</span>
+      </div>
+
+      <div class="diagram-canvas galaxy-layout">
+        <div style="display: flex; justify-content: space-around; width: 100%; gap: 20px; flex-wrap: wrap;">
+          <!-- Fact 1 -->
+          <div class="node-card fact-node" style="flex: 1; min-width: 260px;" onclick="openTableDrawer('FactOrders')">
+            <div class="node-header"><span class="node-tag fact-tag">FACT 1</span> FactOrders (Line Item Grain)</div>
+            <div class="node-body">
+              <div class="node-stat">Rows: <strong id="gal-cnt-FactOrders">{{ "{:,}".format(meta.table_counts.FactOrders) }}</strong></div>
+              <div class="node-key">Measures: days_real, days_scheduled, sales, profit</div>
+            </div>
+          </div>
+
+          <!-- Fact 2 -->
+          <div class="node-card fact-node" style="flex: 1; min-width: 260px; border-color: #a78bfa;" onclick="openTableDrawer('FactShippingPerformance')">
+            <div class="node-header"><span class="node-tag" style="background: rgba(167, 139, 250, 0.2); color: #c4b5fd;">FACT 2</span> FactShippingPerformance (Summary Grain)</div>
+            <div class="node-body">
+              <div class="node-stat">Rows: <strong id="gal-cnt-FactPerf">{{ "{:,}".format(meta.table_counts.FactShippingPerformance) }}</strong></div>
+              <div class="node-key">Measures: on_time_rate, delayed_count, total_sales</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shared Conformed Dimensions Bar -->
+        <div style="margin-top: 24px; padding: 16px; background: rgba(14, 165, 233, 0.06); border: 1px dashed var(--border-glow); border-radius: var(--radius-md); width: 100%;">
+          <div style="font-size: 0.82rem; font-weight: 700; color: var(--cyan-light); margin-bottom: 10px; text-transform: uppercase;">
+            🔗 Shared Conformed Dimensions (Uniform Business Meaning Across Both Facts):
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <div class="node-card dim-node" style="padding: 8px 14px;" onclick="openTableDrawer('DimDate')">
+              <span class="node-tag dim-tag">DIM</span> DimDate
+            </div>
+            <div class="node-card dim-node" style="padding: 8px 14px;" onclick="openTableDrawer('DimGeography')">
+              <span class="node-tag dim-tag">DIM</span> DimGeography
+            </div>
+            <div class="node-card dim-node" style="padding: 8px 14px;" onclick="openTableDrawer('DimShipping')">
+              <span class="node-tag dim-tag">DIM</span> DimShipping
+            </div>
+            <div class="node-card dim-node" style="padding: 8px 14px;" onclick="openTableDrawer('DimProduct')">
+              <span class="node-tag dim-tag">DIM</span> DimProduct
+            </div>
+            <div class="node-card dim-node" style="padding: 8px 14px;" onclick="openTableDrawer('DimCustomer')">
+              <span class="node-tag dim-tag">DIM</span> DimCustomer
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Viva Explanation for Galaxy Schema -->
+      <div class="academic-explainer" style="margin-top: 20px;">
+        <h4>🌌 Academic Interpretation: Fact Constellation (Galaxy) Schema</h4>
+        <p>
+          Real enterprise data warehouses rarely contain only one fact table. The Constellation Schema implements multiple fact tables (e.g. detailed individual order-line fulfillment in <code>FactOrders</code> versus aggregate logistical reliability in <code>FactShippingPerformance</code>) sharing <strong>conformed dimensions</strong>. This allows executives to drill across from macro-level carrier punctuality down to granular individual shipment anomalies without data discrepancy.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Schema Comparison Matrix -->
+  <div id="schemaViewMatrix" class="schema-view-panel">
+    <div class="glass-card" style="padding: 24px;">
+      <div style="margin-bottom: 16px;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: #fff;">Dimensional Schema Comparison Matrix</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted);">
+          Comprehensive comparative analysis across Star, Snowflake, and Constellation architectures.
+        </p>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Evaluation Criterion</th>
+              <th style="color: var(--cyan-light);">⭐ Star Schema</th>
+              <th style="color: #f59e0b);">❄️ Snowflake Schema</th>
+              <th style="color: #a78bfa);">🌌 Fact Constellation (Galaxy)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight: 700;">Query Performance</td>
+              <td><span class="badge badge-success">Fastest</span> (Single-join queries)</td>
+              <td><span class="badge badge-warning">Moderate</span> (Requires multi-table joins)</td>
+              <td><span class="badge badge-success">Fast</span> for pre-aggregated facts</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">Data Redundancy</td>
+              <td><span class="badge badge-warning">High</span> (Denormalized attributes)</td>
+              <td><span class="badge badge-success">Minimal / Zero</span> (3NF Normalized)</td>
+              <td><span class="badge badge-warning">Controlled</span> in shared dimensions</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">Normalization Level</td>
+              <td>Denormalized (1NF / 2NF)</td>
+              <td>Fully Normalized (3NF)</td>
+              <td>Hybrid (Conformed Dimensions)</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">ETL Complexity</td>
+              <td><span class="badge badge-success">Low / Straightforward</span></td>
+              <td><span class="badge badge-warning">High</span> (Hierarchical dimension loading)</td>
+              <td><span class="badge badge-danger">Very High</span> (Multi-grain ETL flows)</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">Ease of Business Understanding</td>
+              <td><span class="badge badge-success">Very Intuitive</span> for analysts</td>
+              <td>Complex (Fragmented hierarchies)</td>
+              <td>Enterprise-grade comprehension</td>
+            </tr>
+            <tr>
+              <td style="font-weight: 700;">Best Use Case in Smart Freight</td>
+              <td>Ad-hoc logistics speed queries & OLAP slice/dice</td>
+              <td>Storage-constrained product/region master data</td>
+              <td>Combining line shipments with high-level carrier KPIs</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Slide-in Table Inspector Drawer / Detail Modal -->
+<div id="tableDrawer" class="table-drawer-overlay" style="display: none;" onclick="closeTableDrawerOnOverlay(event)">
+  <div class="table-drawer-content">
+    <div class="drawer-header">
+      <div>
+        <span class="badge badge-primary" id="drawerTableType">TABLE</span>
+        <h3 id="drawerTableName" style="font-size: 1.25rem; font-weight: 800; color: #fff; margin-top: 4px;">Table Name</h3>
+      </div>
+      <button class="drawer-close-btn" onclick="closeTableDrawer()">✕</button>
+    </div>
+
+    <div class="drawer-body">
+      <!-- Table Purpose -->
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700;">Table Purpose:</div>
+        <p id="drawerTablePurpose" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; margin-top: 4px;">
+          Purpose description here.
+        </p>
+      </div>
+
+      <!-- Quick Metrics -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
+        <div style="background: rgba(15, 23, 42, 0.8); padding: 10px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+          <div style="font-size: 0.72rem; color: var(--text-dim);">Live Row Count</div>
+          <div id="drawerRowCount" style="font-size: 1.1rem; font-weight: 700; color: var(--cyan-light); font-family: var(--font-mono);">0</div>
+        </div>
+        <div style="background: rgba(15, 23, 42, 0.8); padding: 10px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+          <div style="font-size: 0.72rem; color: var(--text-dim);">Primary Key</div>
+          <div id="drawerPrimaryKey" style="font-size: 0.9rem; font-weight: 700; color: #34d399; font-family: var(--font-mono);">id</div>
+        </div>
+      </div>
+
+      <!-- Columns Specification -->
+      <div style="margin-bottom: 20px;">
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700; margin-bottom: 8px;">
+          Attributes & Schema Definition:
+        </div>
+        <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+          <table class="data-table" style="font-size: 0.8rem;">
+            <thead>
+              <tr>
+                <th>Column</th>
+                <th>Type</th>
+                <th>Key</th>
+              </tr>
+            </thead>
+            <tbody id="drawerColumnsTbody">
+              <!-- Populated dynamically via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Real Sample Records -->
+      <div>
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 700; margin-bottom: 8px;">
+          Verified SQLite Sample Rows (First 5):
+        </div>
+        <div class="table-responsive" style="max-height: 220px; overflow-y: auto;">
+          <table class="data-table" id="drawerSampleTable" style="font-size: 0.75rem;">
+            <thead id="drawerSampleThead"></thead>
+            <tbody id="drawerSampleTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchSchemaTab(tabKey) {
+    document.querySelectorAll('.schema-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-schema') === tabKey);
+    });
+    document.querySelectorAll('.schema-view-panel').forEach(panel => {
+      panel.classList.remove('active');
+    });
+    if (tabKey === 'star') document.getElementById('schemaViewStar').classList.add('active');
+    else if (tabKey === 'snowflake') document.getElementById('schemaViewSnowflake').classList.add('active');
+    else if (tabKey === 'galaxy') document.getElementById('schemaViewGalaxy').classList.add('active');
+    else if (tabKey === 'matrix') document.getElementById('schemaViewMatrix').classList.add('active');
+  }
+
+  async function openTableDrawer(tableName) {
+    const drawer = document.getElementById('tableDrawer');
+    drawer.style.display = 'flex';
+    document.getElementById('drawerTableName').textContent = tableName;
+    document.getElementById('drawerTableType').textContent = tableName.startsWith('Fact') ? 'FACT TABLE' : 'DIMENSION TABLE';
+    document.getElementById('drawerTablePurpose').textContent = 'Loading live metadata from SQLite...';
+    document.getElementById('drawerRowCount').textContent = '...';
+    document.getElementById('drawerPrimaryKey').textContent = '...';
+    document.getElementById('drawerColumnsTbody').innerHTML = '<tr><td colspan="3">Fetching...</td></tr>';
+    document.getElementById('drawerSampleThead').innerHTML = '';
+    document.getElementById('drawerSampleTbody').innerHTML = '';
+
+    try {
+      const resp = await fetch(`/api/warehouse/table/${tableName}`);
+      if (!resp.ok) throw new Error('Failed to fetch table details');
+      const data = await resp.json();
+
+      document.getElementById('drawerTablePurpose').textContent = data.purpose;
+      document.getElementById('drawerRowCount').textContent = Number(data.row_count).toLocaleString();
+      document.getElementById('drawerPrimaryKey').textContent = data.primary_keys.join(', ') || 'None';
+
+      // Columns
+      const colTbody = document.getElementById('drawerColumnsTbody');
+      colTbody.innerHTML = '';
+      data.columns.forEach(col => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td style="font-weight: 600; color: #fff;">${col.name}</td>
+          <td style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim);">${col.type}</td>
+          <td>${col.is_pk ? '<span class="badge badge-success">PK</span>' : ''}</td>
+        `;
+        colTbody.appendChild(tr);
+      });
+
+      // Sample Rows
+      if (data.sample_rows && data.sample_rows.length > 0) {
+        const sampleThead = document.getElementById('drawerSampleThead');
+        const headerRow = document.createElement('tr');
+        const sampleCols = Object.keys(data.sample_rows[0]);
+        sampleCols.forEach(c => {
+          const th = document.createElement('th');
+          th.style.whiteSpace = 'nowrap';
+          th.textContent = c;
+          headerRow.appendChild(th);
+        });
+        sampleThead.appendChild(headerRow);
+
+        const sampleTbody = document.getElementById('drawerSampleTbody');
+        data.sample_rows.forEach(row => {
+          const tr = document.createElement('tr');
+          sampleCols.forEach(c => {
+            const td = document.createElement('td');
+            td.style.whiteSpace = 'nowrap';
+            td.style.fontFamily = 'var(--font-mono)';
+            td.textContent = row[c] !== null && row[c] !== undefined ? row[c] : '';
+            tr.appendChild(td);
+          });
+          sampleTbody.appendChild(tr);
+        });
+      }
+    } catch (err) {
+      document.getElementById('drawerTablePurpose').textContent = 'Error: ' + err.message;
+    }
+  }
+
+  function closeTableDrawer() {
+    document.getElementById('tableDrawer').style.display = 'none';
+  }
+
+  function closeTableDrawerOnOverlay(e) {
+    if (e.target.id === 'tableDrawer') closeTableDrawer();
+  }
+
+  // Refresh Warehouse ETL Button
+  document.getElementById('btnRefreshWarehouse').addEventListener('click', async () => {
+    const btn = document.getElementById('btnRefreshWarehouse');
+    const txt = document.getElementById('refreshBtnText');
+    btn.disabled = true;
+    txt.textContent = 'Running Safe ETL...';
+
+    try {
+      const resp = await fetch('/api/warehouse/refresh', { method: 'POST' });
+      const data = await resp.json();
+      if (data.status === 'ok' || data.status === 'success') {
+        alert('Warehouse ETL completed successfully! ' + data.meta.source_rows + ' rows loaded in ' + data.meta.duration_seconds + 's.');
+        window.location.reload();
+      } else {
+        alert('ETL Warning: ' + JSON.stringify(data));
+      }
+    } catch (err) {
+      alert('ETL Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      txt.textContent = 'Refresh Warehouse ETL';
+    }
+  });
+</script>
+
+<style>
+.schema-tab-btn {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: var(--transition);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.schema-tab-btn:hover {
+  background: rgba(30, 41, 59, 0.9);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.schema-tab-btn.active {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: var(--cyan-primary);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(14, 165, 233, 0.25);
+}
+
+.schema-view-panel {
+  display: none;
+}
+.schema-view-panel.active {
+  display: block;
+}
+
+/* Diagram Visual Canvas */
+.diagram-canvas {
+  background: radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.05) 0%, rgba(7, 11, 20, 0.95) 100%);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 32px 20px;
+  min-height: 440px;
+}
+
+.star-layout {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.diagram-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+}
+
+.diagram-center {
+  flex: 1.4;
+  display: flex;
+  justify-content: center;
+}
+
+.node-card {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+.node-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--cyan-primary);
+  box-shadow: 0 8px 24px rgba(14, 165, 233, 0.25);
+}
+
+.fact-node {
+  border: 1.5px solid var(--cyan-primary);
+  background: rgba(13, 27, 49, 0.95);
+  box-shadow: 0 0 20px rgba(14, 165, 233, 0.15);
+  min-width: 260px;
+}
+.dim-node {
+  border-left: 3px solid #818cf8;
+}
+.subdim-node {
+  border-left: 3px solid #f59e0b;
+  min-width: 140px;
+}
+
+.node-header {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.node-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+.fact-tag { background: rgba(14, 165, 233, 0.2); color: var(--cyan-light); }
+.dim-tag { background: rgba(129, 140, 248, 0.2); color: #a5b4fc; }
+
+.node-stat {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.node-key {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+/* Snowflake Chains */
+.snowflake-chain-box {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+.chain-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--cyan-light);
+  margin-bottom: 12px;
+}
+.chain-nodes {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.arrow {
+  color: var(--cyan-primary);
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+/* Table Drawer Overlay */
+.table-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  justify-content: flex-end;
+}
+.table-drawer-content {
+  width: 520px;
+  max-width: 95vw;
+  height: 100vh;
+  background: #0b1120;
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.8);
+  animation: slideInRight 0.25s ease-out;
+}
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.drawer-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.drawer-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 4px;
+}
+.drawer-close-btn:hover { color: #fff; }
+.drawer-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+</style>
+{% endblock %}

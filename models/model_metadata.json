@@ -1,0 +1,158 @@
+{
+  "dataset_name": "DataCo cleaned supply-chain dataset",
+  "dataset_rows_after_cleaning": 59606,
+  "test_size": 0.2,
+  "random_state": 42,
+  "target": "Days for shipping (real)",
+  "feature_count": 21,
+  "numeric_features": [
+    "Days for shipment (scheduled)",
+    "Order Item Quantity",
+    "Sales",
+    "Order Item Discount",
+    "Product Price",
+    "Latitude",
+    "Longitude",
+    "order_month",
+    "order_day",
+    "order_weekday",
+    "order_hour",
+    "is_weekend"
+  ],
+  "categorical_features": [
+    "Shipping Mode",
+    "Type",
+    "Customer Segment",
+    "Market",
+    "Order Region",
+    "Order Country",
+    "Order State",
+    "Category Name",
+    "Department Name"
+  ],
+  "selected_final_model": "Random Forest Regressor",
+  "metrics": {
+    "mae": 0.6938,
+    "mse": 0.9457,
+    "rmse": 0.9725,
+    "r2": 0.64,
+    "train_time_sec": 63.9
+  },
+  "model_comparison": [
+    {
+      "name": "Random Forest Regressor",
+      "mae": 0.6938,
+      "mse": 0.9457,
+      "rmse": 0.9725,
+      "r2": 0.64,
+      "train_time_sec": 63.9
+    },
+    {
+      "name": "Tuned Random Forest Regressor",
+      "mae": 0.8939,
+      "mse": 1.4478,
+      "rmse": 1.2032,
+      "r2": 0.4489,
+      "train_time_sec": 7.92
+    },
+    {
+      "name": "Decision Tree Regressor",
+      "mae": 0.9061,
+      "mse": 1.5083,
+      "rmse": 1.2281,
+      "r2": 0.4259,
+      "train_time_sec": 0.83
+    },
+    {
+      "name": "Linear Regression",
+      "mae": 0.9701,
+      "mse": 1.5272,
+      "rmse": 1.2358,
+      "r2": 0.4187,
+      "train_time_sec": 0.78
+    }
+  ],
+  "top_feature_importances": [
+    {
+      "feature": "Days for shipment (scheduled)",
+      "importance": 0.40348
+    },
+    {
+      "feature": "Latitude",
+      "importance": 0.068448
+    },
+    {
+      "feature": "Longitude",
+      "importance": 0.056929
+    },
+    {
+      "feature": "order_hour",
+      "importance": 0.047184
+    },
+    {
+      "feature": "order_day",
+      "importance": 0.04147
+    },
+    {
+      "feature": "Order Item Discount",
+      "importance": 0.03474
+    },
+    {
+      "feature": "order_month",
+      "importance": 0.028782
+    },
+    {
+      "feature": "order_weekday",
+      "importance": 0.021278
+    },
+    {
+      "feature": "Sales",
+      "importance": 0.018572
+    },
+    {
+      "feature": "Shipping Mode_First Class",
+      "importance": 0.016758
+    },
+    {
+      "feature": "Product Price",
+      "importance": 0.011756
+    },
+    {
+      "feature": "Shipping Mode_Same Day",
+      "importance": 0.010774
+    },
+    {
+      "feature": "Order Item Quantity",
+      "importance": 0.006835
+    },
+    {
+      "feature": "Type_DEBIT",
+      "importance": 0.004667
+    },
+    {
+      "feature": "Type_TRANSFER",
+      "importance": 0.003882
+    },
+    {
+      "feature": "Type_CASH",
+      "importance": 0.003846
+    },
+    {
+      "feature": "Customer Segment_Consumer",
+      "importance": 0.00327
+    },
+    {
+      "feature": "Order State_infrequent_sklearn",
+      "importance": 0.00323
+    },
+    {
+      "feature": "Type_PAYMENT",
+      "importance": 0.003208
+    },
+    {
+      "feature": "Customer Segment_Corporate",
+      "importance": 0.003014
+    }
+  ],
+  "evaluated_at": "2026-10-12 19:22:14"
+}

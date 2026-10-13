@@ -1,0 +1,751 @@
+{% extends "base.html" %}
+
+{% block title %}Lab 9: OLAP Logistics Analytics{% endblock %}
+{% block page_title %}Lab 9: Multi-Dimensional OLAP Logistics Analytics (Lab 9){% endblock %}
+
+{% block content %}
+<div class="lab-header" style="margin-bottom: 24px;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <span class="badge badge-primary">DWM Practical Lab 9</span>
+        <span class="badge badge-success">Star Schema OLAP Cube</span>
+      </div>
+      <h2 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 4px;">
+        Multi-Dimensional OLAP Logistics Analytics
+      </h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Interactive Roll-up, Drill-down, Slice, Dice, and Pivot cross-tabulation querying 59,606 FactOrders records joined with 5 warehouse dimensions.
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="/api/academic/olap/export?format=csv" class="btn btn-secondary btn-sm" id="btnExportCsv">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Export OLAP (CSV)
+      </a>
+      <a href="/api/academic/olap/export?format=json" class="btn btn-secondary btn-sm" id="btnExportJson">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        Export OLAP (JSON)
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Interactive OLAP Control & Presets Panel -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <div class="card-header" style="margin-bottom: 16px;">
+    <div>
+      <h3 class="card-title">
+        <span class="card-icon">🧊</span>
+        OLAP Operation Toolbar & Dimensional Aggregation
+      </h3>
+      <p class="card-subtitle">Choose predefined operational presets or construct custom Roll-up, Drill-down, Slice, Dice, and Pivot queries.</p>
+    </div>
+    <div style="display: flex; gap: 6px;">
+      <button class="btn btn-secondary btn-sm" onclick="setPreset('drill_geo')">🗺️ Geo Drill-down</button>
+      <button class="btn btn-secondary btn-sm" onclick="setPreset('rollup_time')">⏱️ Time Roll-up</button>
+      <button class="btn btn-secondary btn-sm" onclick="setPreset('slice_mode')">🔪 Slice Shipping</button>
+      <button class="btn btn-secondary btn-sm" onclick="setPreset('dice_cube')">🎲 Dice Sub-Cube</button>
+      <button class="btn btn-primary btn-sm" onclick="togglePivotMode()">📊 Pivot Cross-Tab</button>
+    </div>
+  </div>
+
+  <!-- Standard Query Controls -->
+  <div id="standardOlapControls">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px;">
+      <!-- Dimensions Selector -->
+      <div>
+        <label style="font-weight: 700; font-size: 0.85rem; color: #fff; margin-bottom: 6px; display: block;">
+          Select Grouping Dimensions:
+        </label>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px;">
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="market" checked> Market
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="region"> Region
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="country"> Country
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="year"> Year
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="month"> Month
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="department"> Department
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="category"> Category
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="shipping_mode" checked> Shipping Mode
+          </label>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8rem; cursor: pointer; color: #cbd5e1;">
+            <input type="checkbox" name="olapDim" value="customer_segment"> Segment
+          </label>
+        </div>
+      </div>
+
+      <!-- Slicing / Dicing Filters -->
+      <div>
+        <label style="font-weight: 700; font-size: 0.85rem; color: #fff; margin-bottom: 6px; display: block;">
+          Slice / Dice Filters:
+        </label>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
+          <div>
+            <select id="filterMarket" class="form-control" style="font-size: 0.78rem;">
+              <option value="">All Markets</option>
+              <option value="Europe">Europe</option>
+              <option value="LATAM">LATAM</option>
+              <option value="Pacific Asia">Pacific Asia</option>
+              <option value="USCA">USCA</option>
+              <option value="Africa">Africa</option>
+            </select>
+          </div>
+          <div>
+            <select id="filterShippingMode" class="form-control" style="font-size: 0.78rem;">
+              <option value="">All Shipping Modes</option>
+              <option value="Standard Class">Standard Class</option>
+              <option value="Second Class">Second Class</option>
+              <option value="First Class">First Class</option>
+              <option value="Same Day">Same Day</option>
+            </select>
+          </div>
+          <div>
+            <select id="filterSegment" class="form-control" style="font-size: 0.78rem;">
+              <option value="">All Customer Segments</option>
+              <option value="Consumer">Consumer</option>
+              <option value="Corporate">Corporate</option>
+              <option value="Home Office">Home Office</option>
+            </select>
+          </div>
+          <div>
+            <select id="filterYear" class="form-control" style="font-size: 0.78rem;">
+              <option value="">All Years</option>
+              <option value="2015">2015</option>
+              <option value="2016">2016</option>
+              <option value="2017">2017</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+      <div style="display: flex; gap: 12px; align-items: center;">
+        <span style="font-size: 0.82rem; color: var(--text-dim);">Sort By:</span>
+        <select id="sortBySelect" class="form-control" style="width: auto; font-size: 0.8rem; padding: 4px 8px;">
+          <option value="order_count">Order Count (Desc)</option>
+          <option value="total_sales">Total Sales (Desc)</option>
+          <option value="avg_actual_shipping_days">Avg Actual Shipping Days</option>
+          <option value="delay_rate">Delay Rate (%)</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" id="btnExecuteOlap" onclick="runOlapQuery()" style="padding: 8px 24px;">
+        <span id="olapSpinner" class="spinner-border spinner-border-sm d-none" style="margin-right: 6px;"></span>
+        Execute OLAP Aggregation
+      </button>
+    </div>
+  </div>
+
+  <!-- Pivot Cross-Tab Controls (Toggleable) -->
+  <div id="pivotOlapControls" class="d-none" style="background: rgba(14, 165, 233, 0.05); border: 1px dashed rgba(56, 189, 248, 0.3); border-radius: var(--radius-sm); padding: 14px; margin-top: 10px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <span style="font-weight: 700; color: var(--cyan-light); font-size: 0.9rem;">2D Cross-Tab Pivot Configuration</span>
+      <button class="btn btn-secondary btn-sm" onclick="togglePivotMode()">Return to Standard View</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; align-items: flex-end;">
+      <div>
+        <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Row Dimension (Y-Axis):</label>
+        <select id="pivotRowDim" class="form-control" style="font-size: 0.8rem;">
+          <option value="market" selected>Market</option>
+          <option value="region">Order Region</option>
+          <option value="customer_segment">Customer Segment</option>
+          <option value="department">Department</option>
+          <option value="year">Year</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Column Dimension (X-Axis):</label>
+        <select id="pivotColDim" class="form-control" style="font-size: 0.8rem;">
+          <option value="shipping_mode" selected>Shipping Mode</option>
+          <option value="customer_segment">Customer Segment</option>
+          <option value="market">Market</option>
+          <option value="quarter">Quarter</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size: 0.8rem; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 4px;">Aggregated Measure:</label>
+        <select id="pivotMeasure" class="form-control" style="font-size: 0.8rem;">
+          <option value="avg_actual_shipping_days" selected>Avg Actual Shipping Days</option>
+          <option value="total_sales">Total Sales ($)</option>
+          <option value="order_count">Order Count</option>
+          <option value="delay_rate">Delay Rate (%)</option>
+          <option value="avg_discount">Avg Discount ($)</option>
+        </select>
+      </div>
+      <div>
+        <button class="btn btn-primary" onclick="runOlapPivot()" style="width: 100%; padding: 8px 16px;">
+          Build Pivot Matrix
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Live OLAP Summary KPI Cards -->
+<div class="kpi-grid" style="margin-bottom: 24px;">
+  <div class="kpi-card">
+    <div class="kpi-label">Aggregated Orders</div>
+    <div class="kpi-value" id="kpiOlapOrders">59,606</div>
+    <div class="kpi-subtext">FactOrders warehouse records</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Total Cube Revenue</div>
+    <div class="kpi-value" id="kpiOlapSales" style="color: #34d399;">$11,655,164</div>
+    <div class="kpi-subtext">Sum of sales across filtered cells</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Avg Actual Shipping Days</div>
+    <div class="kpi-value" id="kpiOlapDays" style="color: var(--cyan-light);">3.40 days</div>
+    <div class="kpi-subtext">Weighted mean logistics duration</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Delayed Orders</div>
+    <div class="kpi-value" id="kpiOlapDelayed" style="color: #fb7185;">35,200 (59.1%)</div>
+    <div class="kpi-subtext">actual_days > scheduled_days</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Query Latency</div>
+    <div class="kpi-value" id="kpiOlapLatency" style="color: #c4b5fd;">15.4 ms</div>
+    <div class="kpi-subtext">Direct SQLite Star Schema query</div>
+  </div>
+</div>
+
+<!-- OLAP Visualizations Section -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 20px; margin-bottom: 24px;">
+  <!-- Measure Bar Chart -->
+  <div class="glass-card">
+    <div class="card-header" style="margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 1rem;">
+          <span class="card-icon">📊</span>
+          Primary Measure Comparison
+        </h3>
+        <p class="card-subtitle">Visual distribution of aggregated metric across top dimensional groupings.</p>
+      </div>
+    </div>
+    <div style="height: 280px; position: relative;">
+      <canvas id="olapBarChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Delay Rate vs Volume Bubble / Doughnut -->
+  <div class="glass-card">
+    <div class="card-header" style="margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 1rem;">
+          <span class="card-icon">⏱️</span>
+          Delay Rate (%) Across Aggregations
+        </h3>
+        <p class="card-subtitle">Identifies high-friction carrier modes and regional delivery bottlenecks.</p>
+      </div>
+    </div>
+    <div style="height: 280px; position: relative;">
+      <canvas id="olapDelayChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Pivot Matrix Container (Visible in Pivot Mode) -->
+<div id="pivotContainer" class="glass-card d-none" style="margin-bottom: 24px;">
+  <div class="card-header" style="margin-bottom: 14px;">
+    <div>
+      <h3 class="card-title">
+        <span class="card-icon">🔀</span>
+        2D Cross-Tabulation Matrix
+      </h3>
+      <p class="card-subtitle" id="pivotSubtitle">Row dimension vs Column dimension</p>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table" id="pivotTable">
+      <thead id="pivotTableHead"></thead>
+      <tbody id="pivotTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Standard Tabular Results Section -->
+<div id="standardTableContainer" class="glass-card" style="margin-bottom: 24px;">
+  <div class="card-header" style="margin-bottom: 14px;">
+    <div>
+      <h3 class="card-title">
+        <span class="card-icon">📋</span>
+        OLAP Cube Aggregation Records (<span id="olapRecordCount">21</span> cells)
+      </h3>
+      <p class="card-subtitle" id="olapOperationTitle">Multi-Dimensional Star Schema Grouping</p>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table" id="olapResultsTable">
+      <thead id="olapTableHead">
+        <!-- Injected via JS -->
+      </thead>
+      <tbody id="olapTableBody">
+        <!-- Injected via JS -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Generated SQL & Query Execution Plan Inspector -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <div class="card-header" style="margin-bottom: 12px; cursor: pointer;" onclick="document.getElementById('sqlInspectorBox').classList.toggle('d-none');">
+    <div>
+      <h3 class="card-title">
+        <span class="card-icon">🔍</span>
+        SQL Query Inspector & Relational Join Plan
+      </h3>
+      <p class="card-subtitle">Click to view generated parameterized SQL joining FactOrders to dimension tables.</p>
+    </div>
+    <span style="font-size: 1.1rem; color: var(--cyan-light);">▼</span>
+  </div>
+
+  <div id="sqlInspectorBox" class="d-none">
+    <pre style="background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; color: #38bdf8; font-family: var(--font-mono); font-size: 0.82rem; overflow-x: auto; white-space: pre-wrap;"><code id="sqlQueryDisplay">SELECT ...</code></pre>
+  </div>
+</div>
+
+<!-- Academic Viva Voce / Theoretical Rigor Explainer -->
+<div class="glass-card" style="margin-bottom: 24px; border-left: 4px solid #06b6d4; background: linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(56, 189, 248, 0.03));">
+  <div style="display: flex; gap: 14px; align-items: flex-start;">
+    <div style="background: rgba(6, 182, 212, 0.18); border-radius: var(--radius-sm); padding: 10px; color: var(--cyan-light); font-size: 1.5rem;">
+      🎓
+    </div>
+    <div style="flex: 1;">
+      <h4 style="font-size: 1.1rem; font-weight: 800; color: #fff; margin-bottom: 4px;">
+        What Does This Mean? — Academic & Viva Voce Review
+      </h4>
+      <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 16px;">
+        Core concepts of On-Line Analytical Processing (OLAP), dimensional modeling, and cube operations for Lab 9.
+      </p>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px;">
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(6, 182, 212, 0.2); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="background: rgba(6, 182, 212, 0.2); color: var(--cyan-light); font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;">ROLL-UP & DRILL-DOWN</span>
+            <span style="font-size: 0.82rem; font-weight: 700; color: #fff;">Hierarchy Traversal</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; margin: 0;">
+            <strong>Roll-up</strong> climbs the concept hierarchy (e.g., City ➔ State ➔ Country ➔ Market) aggregating measures to broader levels. <strong>Drill-down</strong> descends into granular detail to isolate specific logistics anomalies.
+          </p>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;">SLICE & DICE</span>
+            <span style="font-size: 0.82rem; font-weight: 700; color: #fff;">Sub-Cube Selection</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; margin: 0;">
+            <strong>Slice</strong> extracts a 2D plane by fixing a single dimension member (e.g. <code>Shipping Mode = 'Same Day'</code>). <strong>Dice</strong> defines a sub-cube by applying multiple filtering predicates across 2+ dimensions simultaneously.
+          </p>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="background: rgba(167, 139, 250, 0.2); color: #c4b5fd; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;">PIVOT MATRIX</span>
+            <span style="font-size: 0.82rem; font-weight: 700; color: #fff;">Cross-Tabulation</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; margin: 0;">
+            <strong>Pivot (Rotate)</strong> transforms analytical perspectives by re-orienting the multidimensional axes. Placing <code>Market</code> on rows and <code>Shipping Mode</code> on columns reveals that Same Day shipping achieves ~0.48 days consistently across all continents.
+          </p>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 8px; padding: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="background: rgba(245, 158, 11, 0.2); color: #fbbf24; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px;">OLAP VS OLTP</span>
+            <span style="font-size: 0.82rem; font-weight: 700; color: #fff;">Architectural Distinction</span>
+          </div>
+          <p style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; margin: 0;">
+            OLTP databases prioritize transactional integrity, ACID guarantees, and 3NF normalization. Our Star-Schema OLAP warehouse pre-indexes surrogate foreign keys to deliver complex aggregations over 59,606 rows in under 20 milliseconds.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let activeOlapData = null;
+  let olapBarChartInstance = null;
+  let olapDelayChartInstance = null;
+  let isPivotMode = false;
+
+  const dimLabels = {
+    'market': 'Market', 'region': 'Region', 'country': 'Country',
+    'state': 'State', 'city': 'City', 'year': 'Year', 'quarter': 'Quarter',
+    'month': 'Month', 'weekday': 'Weekday', 'hour': 'Hour',
+    'department': 'Department', 'category': 'Category',
+    'shipping_mode': 'Shipping Mode', 'customer_segment': 'Segment'
+  };
+
+  function setPreset(type) {
+    // Uncheck all dims
+    document.querySelectorAll('input[name="olapDim"]').forEach(cb => cb.checked = false);
+    // Reset filters
+    document.getElementById('filterMarket').value = '';
+    document.getElementById('filterShippingMode').value = '';
+    document.getElementById('filterSegment').value = '';
+    document.getElementById('filterYear').value = '';
+
+    if (type === 'drill_geo') {
+      ['market', 'region', 'country'].forEach(d => {
+        const el = document.querySelector(`input[name="olapDim"][value="${d}"]`);
+        if (el) el.checked = true;
+      });
+      document.getElementById('filterMarket').value = 'Europe';
+    } else if (type === 'rollup_time') {
+      ['year', 'quarter', 'month'].forEach(d => {
+        const el = document.querySelector(`input[name="olapDim"][value="${d}"]`);
+        if (el) el.checked = true;
+      });
+    } else if (type === 'slice_mode') {
+      ['market', 'shipping_mode'].forEach(d => {
+        const el = document.querySelector(`input[name="olapDim"][value="${d}"]`);
+        if (el) el.checked = true;
+      });
+      document.getElementById('filterShippingMode').value = 'Standard Class';
+    } else if (type === 'dice_cube') {
+      ['market', 'category', 'shipping_mode'].forEach(d => {
+        const el = document.querySelector(`input[name="olapDim"][value="${d}"]`);
+        if (el) el.checked = true;
+      });
+      document.getElementById('filterMarket').value = 'LATAM';
+      document.getElementById('filterShippingMode').value = 'Second Class';
+    }
+
+    if (isPivotMode) togglePivotMode();
+    runOlapQuery();
+  }
+
+  function togglePivotMode() {
+    isPivotMode = !isPivotMode;
+    const standardControls = document.getElementById('standardOlapControls');
+    const pivotControls = document.getElementById('pivotOlapControls');
+    const standardTable = document.getElementById('standardTableContainer');
+    const pivotTable = document.getElementById('pivotContainer');
+
+    if (isPivotMode) {
+      standardControls.classList.add('d-none');
+      pivotControls.classList.remove('d-none');
+      standardTable.classList.add('d-none');
+      pivotTable.classList.remove('d-none');
+      runOlapPivot();
+    } else {
+      standardControls.classList.remove('d-none');
+      pivotControls.classList.add('d-none');
+      standardTable.classList.remove('d-none');
+      pivotTable.classList.add('d-none');
+      runOlapQuery();
+    }
+  }
+
+  async function runOlapQuery() {
+    const selectedDims = Array.from(document.querySelectorAll('input[name="olapDim"]:checked')).map(cb => cb.value);
+    if (selectedDims.length === 0) {
+      alert('Please select at least one dimension.');
+      return;
+    }
+
+    const filters = {};
+    const market = document.getElementById('filterMarket').value;
+    const mode = document.getElementById('filterShippingMode').value;
+    const segment = document.getElementById('filterSegment').value;
+    const year = document.getElementById('filterYear').value;
+
+    if (market) filters['market'] = market;
+    if (mode) filters['shipping_mode'] = mode;
+    if (segment) filters['customer_segment'] = segment;
+    if (year) filters['year'] = parseInt(year);
+
+    const sortBy = document.getElementById('sortBySelect').value;
+    const spinner = document.getElementById('olapSpinner');
+    const btn = document.getElementById('btnExecuteOlap');
+
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+
+    try {
+      const response = await fetch('/api/academic/olap/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dimensions: selectedDims,
+          filters: filters,
+          sort_by: sortBy,
+          sort_dir: 'DESC',
+          limit: 100
+        })
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        renderOlapResults(data);
+      } else {
+        alert('OLAP Query error: ' + (data.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error executing OLAP query.');
+    } finally {
+      btn.disabled = false;
+      spinner.classList.add('d-none');
+    }
+  }
+
+  async function runOlapPivot() {
+    const rowDim = document.getElementById('pivotRowDim').value;
+    const colDim = document.getElementById('pivotColDim').value;
+    const measure = document.getElementById('pivotMeasure').value;
+
+    const filters = {};
+    const market = document.getElementById('filterMarket').value;
+    const mode = document.getElementById('filterShippingMode').value;
+    if (market) filters['market'] = market;
+    if (mode) filters['shipping_mode'] = mode;
+
+    try {
+      const response = await fetch('/api/academic/olap/pivot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          row_dimension: rowDim,
+          col_dimension: colDim,
+          measure: measure,
+          filters: filters
+        })
+      });
+      const data = await response.json();
+      if (data.status === 'success') {
+        renderPivotResults(data);
+      } else {
+        alert('Pivot error: ' + (data.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error running pivot cross-tabulation.');
+    }
+  }
+
+  function renderOlapResults(data) {
+    activeOlapData = data;
+
+    // 1. Update KPIs
+    document.getElementById('kpiOlapOrders').textContent = Number(data.summary.total_orders).toLocaleString();
+    document.getElementById('kpiOlapSales').textContent = '$' + Number(data.summary.total_sales).toLocaleString();
+    document.getElementById('kpiOlapDays').textContent = data.summary.avg_actual_days + ' days';
+    document.getElementById('kpiOlapDelayed').textContent = `${Number(data.summary.delayed_orders).toLocaleString()} (${data.summary.delay_rate}%)`;
+    document.getElementById('kpiOlapLatency').textContent = data.execution_time_ms + ' ms';
+
+    document.getElementById('olapRecordCount').textContent = data.records_count;
+    document.getElementById('olapOperationTitle').textContent = data.operation;
+    document.getElementById('sqlQueryDisplay').textContent = data.sql_query;
+
+    // 2. Render Charts
+    renderOlapCharts(data);
+
+    // 3. Render Table
+    renderOlapTable(data);
+  }
+
+  function renderPivotResults(data) {
+    document.getElementById('pivotSubtitle').textContent = `${data.row_label} (Rows) vs ${data.col_label} (Columns) · Measure: ${data.measure_label}`;
+    document.getElementById('sqlQueryDisplay').textContent = data.sql_query;
+    document.getElementById('kpiOlapLatency').textContent = data.execution_time_ms + ' ms';
+
+    const thead = document.getElementById('pivotTableHead');
+    const tbody = document.getElementById('pivotTableBody');
+
+    // Header
+    let headHtml = `<tr><th style="background: rgba(14, 165, 233, 0.15); color: var(--cyan-light); font-weight: 700;">${data.row_label} \\ ${data.col_label}</th>`;
+    data.columns.forEach(col => {
+      headHtml += `<th style="color: #fff; font-weight: 700;">${col}</th>`;
+    });
+    headHtml += `<th style="background: rgba(16, 185, 129, 0.15); color: #34d399;">Row Summary</th></tr>`;
+    thead.innerHTML = headHtml;
+
+    // Body
+    let bodyHtml = '';
+    data.rows.forEach(r => {
+      bodyHtml += `<tr><td style="font-weight: 600; color: #fff;">${r._row_label}</td>`;
+      data.columns.forEach(col => {
+        const val = r[col] || 0.0;
+        bodyHtml += `<td style="font-family: var(--font-mono);">${val > 0 ? val : '—'}</td>`;
+      });
+      bodyHtml += `<td style="font-family: var(--font-mono); font-weight: 700; color: #34d399;">${r._row_average}</td></tr>`;
+    });
+
+    // Column summary row
+    bodyHtml += `<tr style="border-top: 2px solid var(--border-color); font-weight: 700;"><td style="color: var(--cyan-light);">Col Average</td>`;
+    data.columns.forEach(col => {
+      bodyHtml += `<td style="font-family: var(--font-mono); color: var(--cyan-light);">${data.column_summaries[col] || 0.0}</td>`;
+    });
+    bodyHtml += `<td style="color: #34d399;">—</td></tr>`;
+
+    tbody.innerHTML = bodyHtml;
+  }
+
+  function renderOlapCharts(data) {
+    const ctxBar = document.getElementById('olapBarChart').getContext('2d');
+    const ctxDelay = document.getElementById('olapDelayChart').getContext('2d');
+
+    if (olapBarChartInstance) olapBarChartInstance.destroy();
+    if (olapDelayChartInstance) olapDelayChartInstance.destroy();
+
+    const topRows = data.data.slice(0, 10);
+    const primDim = data.dimensions[0];
+    const labels = topRows.map(r => {
+      const parts = data.dimensions.map(d => r[d]);
+      return parts.join(' - ');
+    });
+    const sales = topRows.map(r => r.total_sales);
+    const delayRates = topRows.map(r => r.delay_rate);
+
+    olapBarChartInstance = new Chart(ctxBar, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Total Sales ($)',
+          data: sales,
+          backgroundColor: 'rgba(56, 189, 248, 0.75)',
+          borderColor: '#38bdf8',
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` Sales: $${Number(ctx.raw).toLocaleString()}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#cbd5e1', font: { size: 9 }, maxRotation: 30 }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: {
+              color: '#94a3b8',
+              callback: (v) => '$' + (v / 1000).toFixed(0) + 'k'
+            }
+          }
+        }
+      }
+    });
+
+    olapDelayChartInstance = new Chart(ctxDelay, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Delay Rate (%)',
+          data: delayRates,
+          borderColor: '#fb7185',
+          backgroundColor: 'rgba(244, 63, 94, 0.15)',
+          fill: true,
+          tension: 0.3,
+          pointBackgroundColor: '#fb7185',
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` Delay Rate: ${ctx.raw}%`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#cbd5e1', font: { size: 9 }, maxRotation: 30 }
+          },
+          y: {
+            grid: { color: 'rgba(255,255,255,0.05)' },
+            ticks: {
+              color: '#94a3b8',
+              callback: (v) => v + '%'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function renderOlapTable(data) {
+    const thead = document.getElementById('olapTableHead');
+    const tbody = document.getElementById('olapTableBody');
+
+    // Dynamic headers
+    let headHtml = '<tr>';
+    data.dimensions.forEach(dim => {
+      headHtml += `<th style="color: var(--cyan-light); font-weight: 700;">${dimLabels[dim] || dim}</th>`;
+    });
+    headHtml += `
+      <th>Orders</th>
+      <th>Total Sales ($)</th>
+      <th>Avg Actual Days</th>
+      <th>Avg Scheduled Days</th>
+      <th>Avg Qty</th>
+      <th>Avg Discount ($)</th>
+      <th>Delayed Orders</th>
+      <th>Delay Rate (%)</th>
+    </tr>`;
+    thead.innerHTML = headHtml;
+
+    // Body rows
+    let bodyHtml = '';
+    data.data.forEach(r => {
+      bodyHtml += '<tr>';
+      data.dimensions.forEach(dim => {
+        bodyHtml += `<td style="font-weight: 600; color: #fff;">${r[dim] || '—'}</td>`;
+      });
+      const delayColor = r.delay_rate > 50 ? '#fb7185' : '#34d399';
+      bodyHtml += `
+        <td style="font-family: var(--font-mono);">${Number(r.order_count).toLocaleString()}</td>
+        <td style="font-family: var(--font-mono); color: #34d399;">$${Number(r.total_sales).toLocaleString()}</td>
+        <td style="font-family: var(--font-mono); color: var(--cyan-light); font-weight: 600;">${r.avg_actual_shipping_days} d</td>
+        <td style="font-family: var(--font-mono);">${r.avg_scheduled_shipping_days} d</td>
+        <td style="font-family: var(--font-mono);">${r.avg_order_quantity}</td>
+        <td style="font-family: var(--font-mono); color: #fbbf24;">$${r.avg_discount}</td>
+        <td style="font-family: var(--font-mono); color: ${delayColor};">${Number(r.delayed_order_count).toLocaleString()}</td>
+        <td style="font-family: var(--font-mono); font-weight: 700; color: ${delayColor};">${r.delay_rate}%</td>
+      </tr>`;
+    });
+    tbody.innerHTML = bodyHtml;
+  }
+
+  // Load initial aggregation on mount
+  document.addEventListener('DOMContentLoaded', () => {
+    runOlapQuery();
+  });
+</script>
+{% endblock %}

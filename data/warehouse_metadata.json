@@ -1,0 +1,34 @@
+{
+  "status": "success",
+  "load_timestamp": "2026-10-12T19:46:16.231776",
+  "source_csv": "DataCo_Cleaned-2.csv",
+  "source_rows": 59606,
+  "duration_seconds": 0.58,
+  "table_counts": {
+    "FactOrders": 59606,
+    "FactShippingPerformance": 31348,
+    "DimDate": 20570,
+    "DimGeography": 31062,
+    "DimProduct": 117,
+    "DimCustomer": 1488,
+    "DimShipping": 17
+  },
+  "validation": {
+    "fact_matches_source": true,
+    "no_orphan_dates": true,
+    "no_orphan_geos": true,
+    "no_orphan_prods": true,
+    "no_orphan_custs": true,
+    "no_orphan_ships": true
+  },
+  "schema_types": [
+    "Star Schema",
+    "Snowflake Schema",
+    "Fact Constellation / Galaxy Schema"
+  ],
+  "data_limitations": [
+    "Order timestamp synthesized using engineered components (month, day, weekday, hour, weekend) because original ISO timestamps were normalized during data cleaning.",
+    "Customer dimension excludes names, emails, passwords, and street addresses to adhere to zero-PII security rules.",
+    "Surrogate keys are generated deterministically sequentially within this SQLite instance."
+  ]
+}

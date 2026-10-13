@@ -1,0 +1,123 @@
+{
+  "models": {
+    "Linear Regression": {
+      "name": "Linear Regression",
+      "mae": 0.9701,
+      "mse": 1.5272,
+      "rmse": 1.2358,
+      "r2": 0.4187,
+      "train_time_sec": 0.91
+    },
+    "Decision Tree Regressor": {
+      "name": "Decision Tree Regressor",
+      "mae": 0.9061,
+      "mse": 1.5083,
+      "rmse": 1.2281,
+      "r2": 0.4259,
+      "train_time_sec": 1.6
+    },
+    "Random Forest Regressor": {
+      "name": "Random Forest Regressor",
+      "mae": 0.6938,
+      "mse": 0.9457,
+      "rmse": 0.9725,
+      "r2": 0.64,
+      "train_time_sec": 63.8
+    },
+    "Tuned Random Forest Regressor": {
+      "name": "Tuned Random Forest Regressor",
+      "mae": 0.8939,
+      "mse": 1.4478,
+      "rmse": 1.2032,
+      "r2": 0.4489,
+      "train_time_sec": 7.4
+    }
+  },
+  "best_model": "Tuned Random Forest Regressor",
+  "top_features": [
+    {
+      "feature": "Days for shipment (scheduled)",
+      "importance": 0.84565
+    },
+    {
+      "feature": "Shipping Mode_First Class",
+      "importance": 0.03522
+    },
+    {
+      "feature": "Shipping Mode_Same Day",
+      "importance": 0.02288
+    },
+    {
+      "feature": "order_hour",
+      "importance": 0.0185
+    },
+    {
+      "feature": "Latitude",
+      "importance": 0.01165
+    },
+    {
+      "feature": "Longitude",
+      "importance": 0.00909
+    },
+    {
+      "feature": "order_day",
+      "importance": 0.00604
+    },
+    {
+      "feature": "order_month",
+      "importance": 0.00392
+    },
+    {
+      "feature": "Order Item Discount",
+      "importance": 0.00355
+    },
+    {
+      "feature": "order_weekday",
+      "importance": 0.00328
+    },
+    {
+      "feature": "Sales",
+      "importance": 0.00214
+    },
+    {
+      "feature": "Product Price",
+      "importance": 0.00137
+    },
+    {
+      "feature": "Type_PAYMENT",
+      "importance": 0.00083
+    },
+    {
+      "feature": "Customer Segment_Corporate",
+      "importance": 0.00079
+    },
+    {
+      "feature": "Order Item Quantity",
+      "importance": 0.00073
+    },
+    {
+      "feature": "Type_DEBIT",
+      "importance": 0.00067
+    },
+    {
+      "feature": "Customer Segment_Home Office",
+      "importance": 0.00063
+    },
+    {
+      "feature": "Type_CASH",
+      "importance": 0.00062
+    },
+    {
+      "feature": "Type_TRANSFER",
+      "importance": 0.00062
+    },
+    {
+      "feature": "Order State_Baja California",
+      "importance": 0.00052
+    }
+  ],
+  "target": "Days for shipping (real)",
+  "feature_count": 21,
+  "test_size": 0.2,
+  "evaluated_at": "2026-10-12 13:00:55"
+}

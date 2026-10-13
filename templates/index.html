@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}Overview{% endblock %}
+{% block page_title %}Logistics Intelligence & Academic Suite{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+  <div class="hero-pill">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+    College Mini-Project & Academic Lab
+  </div>
+  <h1 class="hero-title">Smart Freight: Intelligent Shipping Days Prediction</h1>
+  <p class="hero-desc">
+    An end-to-end Machine Learning and Data Warehousing platform trained on the real DataCo cleaned supply-chain dataset ({{ "{:,}".format(metadata.dataset_rows_after_cleaning) }} records). Predicts actual shipping duration using only pre-shipment attributes — zero data leakage.
+  </p>
+  <div class="hero-cta">
+    <a href="{{ url_for('predict_page') }}" class="btn btn-primary btn-lg">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      Run Shipping Predictor
+    </a>
+    <a href="{{ url_for('academic_lab') }}" class="btn btn-secondary btn-lg">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+      Explore DWM Academic Lab
+    </a>
+  </div>
+</div>
+
+<!-- Key Performance Metrics -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <span class="kpi-label">Dataset Records</span>
+      <div class="kpi-icon-wrap" style="background: rgba(14,165,233,.15); color: var(--cyan-light);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+      </div>
+    </div>
+    <div class="kpi-value">{{ "{:,}".format(metadata.dataset_rows_after_cleaning) }}</div>
+    <div class="kpi-subtext">Cleaned DataCo supply-chain orders</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <span class="kpi-label">Production Model MAE</span>
+      <div class="kpi-icon-wrap" style="background: rgba(16,185,129,.15); color: #34d399;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+      </div>
+    </div>
+    <div class="kpi-value">{{ metadata.metrics.mae }}d</div>
+    <div class="kpi-subtext">Mean Absolute Error — {{ metadata.selected_final_model }}</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <span class="kpi-label">Production Model RMSE</span>
+      <div class="kpi-icon-wrap" style="background: rgba(99,102,241,.15); color: #818cf8;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20v-6"></path></svg>
+      </div>
+    </div>
+    <div class="kpi-value">{{ metadata.metrics.rmse }}d</div>
+    <div class="kpi-subtext">Root Mean Squared Error (test set)</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <span class="kpi-label">R² Score</span>
+      <div class="kpi-icon-wrap" style="background: rgba(245,158,11,.15); color: #fbbf24;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+      </div>
+    </div>
+    <div class="kpi-value">{{ metadata.metrics.r2 }}</div>
+    <div class="kpi-subtext">Variance explained by pre-shipment features</div>
+  </div>
+</div>
+
+<!-- Comparison table + Leakage Audit -->
+<div class="grid-2">
+  <div class="glass-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><span class="card-icon">⚡</span> Regression Model Comparison</h3>
+        <p class="card-subtitle">
+          Real metrics from held-out 20% test set (80:20 split, random_state=42).
+          Production model selected by: lowest RMSE → lowest MAE → highest R².
+        </p>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>MAE (Days)</th>
+            <th>RMSE</th>
+            <th>R² Score</th>
+            <th>Train Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in metadata.model_comparison %}
+          <tr {% if m.name == metadata.selected_final_model %}style="background:rgba(14,165,233,.08);font-weight:600;"{% endif %}>
+            <td>
+              {{ m.name }}
+              {% if m.name == metadata.selected_final_model %}
+                <span class="badge badge-success" style="font-size:.65rem;margin-left:5px;">Production</span>
+              {% endif %}
+            </td>
+            <td style="font-family:var(--font-mono);">{{ m.mae }}</td>
+            <td style="font-family:var(--font-mono);">{{ m.rmse }}</td>
+            <td style="font-family:var(--font-mono);">{{ m.r2 }}</td>
+            <td style="font-family:var(--font-mono);">{{ m.train_time_sec }}s</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="academic-explainer" style="margin-top:16px;margin-bottom:0;">
+      <h4>Selection Rationale</h4>
+      <p>
+        <strong>{{ metadata.selected_final_model }}</strong> achieved the lowest RMSE
+        ({{ metadata.metrics.rmse }}) on the held-out test set and is therefore the
+        production pipeline. The label "Tuned" does not guarantee superiority; the
+        selector always defers to empirical metrics.
+      </p>
+    </div>
+  </div>
+
+  <div class="glass-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><span class="card-icon">🛡️</span> Data Leakage Boundary Audit</h3>
+        <p class="card-subtitle">Enforcing strict pre-shipment attribute boundary</p>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div style="background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);border-radius:var(--radius-md);padding:14px;">
+        <div style="color:#fb7185;font-size:.85rem;font-weight:700;margin-bottom:6px;">❌ Prohibited Post-Fulfillment Attributes</div>
+        <p style="font-size:.8rem;color:var(--text-muted);line-height:1.5;">
+          <code>Late_delivery_risk</code>, <code>Delivery Status</code>,
+          <code>shipping date (DateOrders)</code>, <code>Shipping delays</code> —
+          all derived after delivery and never fed to the model.
+        </p>
+      </div>
+      <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:var(--radius-md);padding:14px;">
+        <div style="color:#34d399;font-size:.85rem;font-weight:700;margin-bottom:6px;">✅ Approved Pre-Shipment Feature Vector ({{ metadata.feature_count }} features)</div>
+        <p style="font-size:.8rem;color:var(--text-muted);line-height:1.5;">
+          Scheduled days · Shipping Mode · Payment Type · Customer Segment ·
+          Market → Region → Country → State · Category · Department ·
+          Quantity · Sales · Discount · Unit Price · Lat/Lon · Order Timestamp features.
+        </p>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:4px;">
+        <a href="{{ url_for('academic_lab') }}" class="btn btn-outline-cyan btn-sm" style="flex:1;">Lab 0 Audit Report →</a>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm" style="flex:1;">Prediction History →</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

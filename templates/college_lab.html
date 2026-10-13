@@ -1,0 +1,729 @@
+{% extends "base.html" %}
+
+{% block title %}Lab {{ lab.lab_number }}: {{ lab.short_title }} | College Lab Mode{% endblock %}
+
+{% block page_title %}
+College Lab Mode — Lab {{ lab.lab_number }}: {{ lab.short_title }}
+{% endblock %}
+
+{% block header_actions %}
+<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+  <!-- Lab Navigation Dropdown -->
+  <select class="form-control" style="width: auto; padding: 6px 12px; font-size: 0.82rem; background: rgba(15, 23, 42, 0.9); border: 1px solid var(--border-color); color: #fff; font-weight: 600;" onchange="window.location.href='/college-labs/' + this.value">
+    {% for item in catalog %}
+    <option value="{{ item.id }}" {% if item.id == lab.lab_number %}selected{% endif %}>
+      {{ item.title }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <!-- Previous / Next Lab Buttons -->
+  {% if lab.lab_number > 1 %}
+  <a href="/college-labs/{{ lab.lab_number - 1 }}" class="btn btn-secondary btn-sm" title="Previous Lab">
+    ◀ Lab {{ lab.lab_number - 1 }}
+  </a>
+  {% endif %}
+
+  {% if lab.lab_number < 10 %}
+  <a href="/college-labs/{{ lab.lab_number + 1 }}" class="btn btn-primary btn-sm" title="Next Lab">
+    Lab {{ lab.lab_number + 1 }} ▶
+  </a>
+  {% endif %}
+
+  <!-- Link to Advanced Analysis -->
+  <a href="#advancedAnalysisSection" class="btn btn-secondary btn-sm" style="font-size: 0.76rem; border-color: rgba(167, 139, 250, 0.4); color: #c4b5fd;">
+    ⚙️ Advanced Analysis
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Top Mode Header & Syllabus Progress Bar -->
+<div class="glass-card" style="margin-bottom: 20px; border-left: 4px solid var(--cyan-primary); padding: 14px 20px;">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <span class="badge badge-primary" style="font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase;">College Lab Syllabus</span>
+        <span style="font-size: 0.8rem; color: var(--text-dim);">DWM Practical Curriculum (Labs 1 to 10)</span>
+      </div>
+      <h2 style="font-size: 1.35rem; font-weight: 800; color: #fff; margin: 0;">
+        Lab {{ lab.lab_number }}: {{ lab.title }}
+      </h2>
+    </div>
+
+    <!-- Quick Lab Number Strip -->
+    <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+      {% for i in range(1, 11) %}
+      <a href="/college-labs/{{ i }}" style="display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; font-size: 0.78rem; font-weight: 700; text-decoration: none; transition: all 0.2s; {% if i == lab.lab_number %}background: var(--cyan-primary); color: #fff; font-weight: 800; box-shadow: 0 0 10px rgba(14, 165, 233, 0.5);{% else %}background: rgba(15, 23, 42, 0.7); color: var(--text-muted); border: 1px solid var(--border-color);{% endif %}">
+        {{ i }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<!-- SECTION 1: AIM -->
+<!-- ===================================================================== -->
+<div class="glass-card" style="margin-bottom: 20px;">
+  <div style="display: flex; gap: 12px; align-items: flex-start;">
+    <div style="background: rgba(14, 165, 233, 0.15); color: var(--cyan-light); border-radius: 6px; padding: 6px 10px; font-size: 1.1rem; font-weight: 800;">
+      1
+    </div>
+    <div style="flex: 1;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: var(--cyan-light); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Aim of the Experiment
+      </h3>
+      <p style="font-size: 0.94rem; color: #fff; line-height: 1.6; margin: 0; font-weight: 500;">
+        {{ lab.aim }}
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<!-- SECTION 2: DATASET / SELECTED FEATURES -->
+<!-- ===================================================================== -->
+<div class="glass-card" style="margin-bottom: 20px;">
+  <div style="display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px;">
+    <div style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border-radius: 6px; padding: 6px 10px; font-size: 1.1rem; font-weight: 800;">
+      2
+    </div>
+    <div style="flex: 1;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #38bdf8; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Dataset & Selected Features
+      </h3>
+      <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
+        Logistics operational attributes utilized for this lab module.
+      </p>
+    </div>
+  </div>
+
+  <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+    {% if lab.lab_number == 1 %}
+      <div style="font-weight: 600; color: #fff; font-size: 0.85rem; margin-bottom: 8px;">
+        Database: Smart Freight SQLite Warehouse (smart_freight.db)
+      </div>
+      <div class="table-responsive">
+        <table class="data-table" style="font-size: 0.8rem;">
+          <thead>
+            <tr>
+              <th>Table Name</th>
+              <th>Schema Role</th>
+              <th>Total Rows</th>
+              <th>Key Columns</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in lab.dataset_info.warehouse_tables %}
+            <tr>
+              <td style="font-weight: 700; color: var(--cyan-light);">{{ t.table }}</td>
+              <td><span class="badge {% if 'Fact' in t.role %}badge-primary{% else %}badge-neutral{% endif %}">{{ t.role }}</span></td>
+              <td style="font-family: var(--font-mono); font-weight: 700;">{{ t.rows }}</td>
+              <td style="font-size: 0.74rem; color: var(--text-dim); font-family: var(--font-mono);">{{ t.columns }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; font-size: 0.84rem;">
+        {% for k, v in lab.dataset_info.items() %}
+        <div>
+          <span style="color: var(--text-dim); text-transform: capitalize; font-weight: 600;">{{ k.replace('_', ' ') }}:</span>
+          <div style="color: #fff; font-weight: 500; margin-top: 2px;">{{ v }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<!-- SECTION 3: STEPS PERFORMED -->
+<!-- ===================================================================== -->
+<div class="glass-card" style="margin-bottom: 20px;">
+  <div style="display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px;">
+    <div style="background: rgba(167, 139, 250, 0.15); color: #a78bfa; border-radius: 6px; padding: 6px 10px; font-size: 1.1rem; font-weight: 800;">
+      3
+    </div>
+    <div style="flex: 1;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #a78bfa; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Steps Performed
+      </h3>
+      <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
+        Methodology and sequence of practical execution.
+      </p>
+    </div>
+  </div>
+
+  <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 18px;">
+    <ol style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: #e2e8f0; line-height: 1.7;">
+      {% for step in lab.steps %}
+      <li style="margin-bottom: 6px;">{{ step }}</li>
+      {% endfor %}
+    </ol>
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<!-- SECTION 4: RESULT TABLE -->
+<!-- ===================================================================== -->
+<div class="glass-card" style="margin-bottom: 20px;">
+  <div style="display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px;">
+    <div style="background: rgba(52, 211, 153, 0.15); color: #34d399; border-radius: 6px; padding: 6px 10px; font-size: 1.1rem; font-weight: 800;">
+      4
+    </div>
+    <div style="flex: 1;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #34d399; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Experimental Results & Findings
+      </h3>
+      <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
+        Tabular summary of recorded outputs, metrics, and comparisons.
+      </p>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          {% for col in lab.result_table.columns %}
+          <th>{{ col }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in lab.result_table.rows %}
+        <tr>
+          {% for cell in row %}
+          <td {% if loop.first %}style="font-weight: 700; color: #fff;"{% endif %}>{{ cell }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<!-- SECTION 5: CHARTS & VISUALIZATIONS -->
+<!-- ===================================================================== -->
+<div class="glass-card" style="margin-bottom: 20px;">
+  <div style="display: flex; gap: 12px; align-items: flex-start; margin-bottom: 14px;">
+    <div style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-radius: 6px; padding: 6px 10px; font-size: 1.1rem; font-weight: 800;">
+      5
+    </div>
+    <div style="flex: 1;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #fbbf24; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Charts & Visual Demonstrations
+      </h3>
+      <p style="font-size: 0.84rem; color: var(--text-muted); margin: 0;">
+        Graphical representation of real calculated patterns.
+      </p>
+    </div>
+  </div>
+
+  <!-- LAB SPECIFIC CHARTS -->
+  {% if lab.lab_number == 1 %}
+    <!-- Star Schema Visual Diagram -->
+    <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 24px; text-align: center;">
+      <div style="display: inline-block; background: var(--cyan-primary); color: #fff; padding: 12px 24px; border-radius: 8px; font-weight: 800; font-size: 1rem; margin-bottom: 24px; box-shadow: 0 4px 14px rgba(14, 165, 233, 0.4);">
+        FactOrders (Central Fact Table: 59,606 rows)
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px;">
+        <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-weight: 700; color: #38bdf8;">DimDate</div>
+          <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">Month, Day, Weekday, Hour (20,570 rows)</div>
+        </div>
+        <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-weight: 700; color: #38bdf8;">DimGeography</div>
+          <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">Market, Region, Country, City (31,062 rows)</div>
+        </div>
+        <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-weight: 700; color: #38bdf8;">DimProduct</div>
+          <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">Category, Department, Price (117 rows)</div>
+        </div>
+        <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-weight: 700; color: #38bdf8;">DimCustomer</div>
+          <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">Segment, City Cohorts [No PII] (1,488 rows)</div>
+        </div>
+        <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid var(--border-color); border-radius: 6px; padding: 12px;">
+          <div style="font-weight: 700; color: #38bdf8;">DimShipping</div>
+          <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 4px;">Shipping Mode, Payment Type (17 rows)</div>
+        </div>
+      </div>
+    </div>
+
+  {% elif lab.lab_number == 2 %}
+    <!-- OLAP 2D Pivot Cross-Tab Visual -->
+    <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+      <h4 style="font-size: 0.9rem; color: var(--cyan-light); margin-bottom: 12px;">
+        Interactive 2D OLAP Pivot Cross-Tab: Market (Rows) vs Shipping Mode (Columns)
+      </h4>
+      <div class="table-responsive">
+        <table class="data-table" style="font-size: 0.8rem;">
+          <thead>
+            <tr>
+              <th>Market</th>
+              {% for col in lab.olap_samples.pivot_columns %}
+              <th>{{ col }} (Avg Days)</th>
+              {% endfor %}
+              <th>Market Average</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in lab.olap_samples.pivot_rows %}
+            <tr>
+              <td style="font-weight: 700; color: #fff;">{{ r._row_label }}</td>
+              {% for col in lab.olap_samples.pivot_columns %}
+              <td style="font-family: var(--font-mono); color: var(--cyan-light);">{{ r[col] }}</td>
+              {% endfor %}
+              <td style="font-family: var(--font-mono); font-weight: 700; color: #34d399;">{{ r._row_average }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  {% elif lab.lab_number == 3 %}
+    <!-- Lab 3: 5 Data Visualization Charts -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px;">
+      <!-- Chart 1: Bar -->
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">1. Shipping Mode Distribution (Bar Chart)</h5>
+        <div style="height: 220px;"><canvas id="chartLab3Bar"></canvas></div>
+      </div>
+      <!-- Chart 2: Pie -->
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">2. Top Product Categories Share (Pie Chart)</h5>
+        <div style="height: 220px;"><canvas id="chartLab3Pie"></canvas></div>
+      </div>
+      <!-- Chart 3: Histogram -->
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">3. Actual Shipping Days (Histogram)</h5>
+        <div style="height: 220px;"><canvas id="chartLab3Hist"></canvas></div>
+      </div>
+      <!-- Chart 4: Scatter -->
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">4. Scheduled vs Actual Days (Scatter Plot)</h5>
+        <div style="height: 220px;"><canvas id="chartLab3Scatter"></canvas></div>
+      </div>
+    </div>
+    <!-- Chart 5: Correlation Heatmap Table -->
+    <div style="margin-top: 16px; background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+      <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">5. Selected Numerical-Feature Correlation Matrix (Heatmap)</h5>
+      <div class="table-responsive">
+        <table class="data-table" style="font-size: 0.78rem; text-align: center;">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              {% for f in lab.visuals.heatmap.features %}
+              <th>{{ f }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for f_row in lab.visuals.heatmap.features %}
+            {% set row_idx = loop.index0 %}
+            <tr>
+              <td style="font-weight: 700; color: #fff; text-align: left;">{{ f_row }}</td>
+              {% for f_col in lab.visuals.heatmap.features %}
+              {% set col_idx = loop.index0 %}
+              {% set val = lab.visuals.heatmap.matrix[row_idx][col_idx] %}
+              <td style="font-family: var(--font-mono); font-weight: 700; background: {% if val == 1.0 %}rgba(14, 165, 233, 0.4){% elif val > 0.5 %}rgba(14, 165, 233, 0.25){% elif val > 0.2 %}rgba(14, 165, 233, 0.12){% else %}transparent{% endif %}; color: {% if val > 0.4 %}#38bdf8{% else %}#94a3b8{% endif %};">
+                {{ val }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  {% elif lab.lab_number == 4 %}
+    <!-- Lab 4: Actual vs Predicted Regression Chart -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px;">
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">Simple Linear Regression (Actual vs Predicted)</h5>
+        <div style="height: 240px;"><canvas id="chartLab4SLR"></canvas></div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">Multiple Linear Regression (Actual vs Predicted)</h5>
+        <div style="height: 240px;"><canvas id="chartLab4MLR"></canvas></div>
+      </div>
+    </div>
+
+  {% elif lab.lab_number == 5 %}
+    <!-- Lab 5: Attribute Relevance Bar & Decision Tree Structure -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px;">
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">Top Attributes by Mutual Information</h5>
+        <div style="height: 240px;"><canvas id="chartLab5MI"></canvas></div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">Decision Tree Rules (Readable Tree Diagram)</h5>
+        <div style="font-family: var(--font-mono); font-size: 0.78rem; color: #e2e8f0; line-height: 1.8;">
+          {% for rule in lab.tree_diagram_rules %}
+          <div style="background: rgba(30, 41, 59, 0.7); border-radius: 4px; padding: 6px 10px; margin-bottom: 8px; border-left: 3px solid var(--cyan-light);">
+            <div style="font-weight: 700; color: #38bdf8;">{{ rule.node }}: IF {{ rule.condition }}</div>
+            <div style="color: #34d399; margin-left: 12px;">{{ rule.if_true }}</div>
+            <div style="color: #f59e0b; margin-left: 12px;">{{ rule.if_false }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+  {% elif lab.lab_number == 6 %}
+    <!-- Lab 6: Confusion Matrix for Naive Bayes vs Decision Tree -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px;">
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">Gaussian Naive Bayes Confusion Matrix</h5>
+        <div class="table-responsive">
+          <table class="data-table" style="font-size: 0.8rem; text-align: center;">
+            <thead>
+              <tr>
+                <th>Actual \ Predicted</th>
+                {% for l in lab.confusion_matrix.labels %}
+                <th>{{ l }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for l in lab.confusion_matrix.labels %}
+              {% set r_idx = loop.index0 %}
+              <tr>
+                <td style="font-weight: 700; color: #fff; text-align: left;">{{ l }}</td>
+                {% for c in lab.confusion_matrix.labels %}
+                {% set c_idx = loop.index0 %}
+                {% set val = lab.confusion_matrix.matrix[r_idx][c_idx] %}
+                <td style="font-family: var(--font-mono); font-weight: 700; color: {% if r_idx == c_idx %}#34d399{% else %}#94a3b8{% endif %}; background: {% if r_idx == c_idx %}rgba(52, 211, 153, 0.15){% else %}transparent{% endif %};">
+                  {{ val }}
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">Model Comparison: Accuracy & F1-Score</h5>
+        <div style="height: 220px;"><canvas id="chartLab6Comp"></canvas></div>
+      </div>
+    </div>
+
+  {% elif lab.lab_number == 7 %}
+    <!-- Lab 7: K-Means Elbow Curve -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px;">
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">WCSS Elbow Curve (Optimal k = 4)</h5>
+        <div style="height: 230px;"><canvas id="chartLab7Elbow"></canvas></div>
+      </div>
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px;">
+        <h5 style="color: #fff; font-size: 0.85rem; margin-bottom: 8px;">2D Customer Cohorts Cluster Distribution</h5>
+        <div class="table-responsive">
+          <table class="data-table" style="font-size: 0.78rem;">
+            <thead>
+              <tr>
+                <th>Cluster Group</th>
+                <th>Cohorts</th>
+                <th>Avg Orders</th>
+                <th>Avg Sales</th>
+                <th>Avg Days</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in lab.cluster_summary %}
+              <tr>
+                <td style="font-weight: 700; color: #38bdf8;">{{ c.cluster }}</td>
+                <td style="font-family: var(--font-mono);">{{ c.size }}</td>
+                <td style="font-family: var(--font-mono);">{{ c.avg_orders }}</td>
+                <td style="font-family: var(--font-mono); color: #34d399;">{{ c.avg_sales }}</td>
+                <td style="font-family: var(--font-mono);">{{ c.avg_shipping }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  {% elif lab.lab_number == 8 %}
+    <!-- Lab 8: Hierarchical Cluster Merge Tree -->
+    <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+      <h5 style="color: #fff; font-size: 0.9rem; margin-bottom: 8px;">
+        Hierarchical Dendrogram Representation (Ward's Linkage Tree)
+      </h5>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px;">
+        {{ lab.ward_linkage_explanation }}
+      </p>
+      <div style="background: #0f172a; border-radius: 6px; padding: 16px; border: 1px solid rgba(148, 163, 184, 0.1);">
+        <div style="font-family: var(--font-mono); font-size: 0.78rem; color: #e2e8f0; line-height: 1.8;">
+          <div style="color: #38bdf8;">Root Merge (Distance = 42.6)</div>
+          <div style="margin-left: 20px;">├── High Spend Bulk Cohorts [412 cohorts, 27.7%]</div>
+          <div style="margin-left: 20px;">└── Mainstream Branch (Distance = 31.4)</div>
+          <div style="margin-left: 40px;">├── Core Standard Cohorts [785 cohorts, 52.8%]</div>
+          <div style="margin-left: 40px;">└── Expedited Express Cohorts [290 cohorts, 19.5%]</div>
+        </div>
+      </div>
+    </div>
+
+  {% elif lab.lab_number == 9 %}
+    <!-- Lab 9: Top 5 Rules Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px;">
+      {% for rule in lab.top_rules %}
+      <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-sm); padding: 12px 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-weight: 700; color: #fbbf24; font-size: 0.8rem;">Rule #{{ rule.id }}</span>
+          <span class="badge badge-warning" style="font-size: 0.65rem;">Lift: {{ rule.lift }}</span>
+        </div>
+        <div style="font-weight: 700; color: #fff; font-size: 0.84rem; margin-bottom: 6px;">
+          IF <span style="color: var(--cyan-light);">{{ rule.antecedent }}</span> ➔ THEN <span style="color: #34d399;">{{ rule.consequent }}</span>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-dim); margin-bottom: 6px; font-family: var(--font-mono);">
+          Support: {{ "%.2f"|format(rule.support * 100) }}% | Confidence: {{ "%.1f"|format(rule.confidence * 100) }}%
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
+          {{ rule.interpretation }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+  {% elif lab.lab_number == 10 %}
+    <!-- Lab 10: Mini Project Synthesis -->
+    <div style="background: rgba(15, 23, 42, 0.8); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px;">
+      <h5 style="color: #38bdf8; font-size: 0.9rem; margin-bottom: 10px;">Key Technical Learnings from Mini-Project:</h5>
+      <ul style="margin: 0; padding-left: 20px; font-size: 0.84rem; color: #e2e8f0; line-height: 1.8;">
+        {% for kl in lab.key_learnings %}
+        <li>{{ kl }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+</div>
+
+<!-- ===================================================================== -->
+<!-- SECTION 6: CONCLUSION -->
+<!-- ===================================================================== -->
+<div class="glass-card" style="margin-bottom: 20px; border-left: 4px solid #10b981;">
+  <div style="display: flex; gap: 12px; align-items: flex-start;">
+    <div style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-radius: 6px; padding: 6px 10px; font-size: 1.1rem; font-weight: 800;">
+      6
+    </div>
+    <div style="flex: 1;">
+      <h3 style="font-size: 1rem; font-weight: 700; color: #34d399; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em;">
+        Conclusion
+      </h3>
+      <p style="font-size: 0.92rem; color: #fff; line-height: 1.6; margin: 0; font-weight: 500;">
+        {{ lab.conclusion }}
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ===================================================================== -->
+<!-- OPTIONAL ADVANCED ANALYSIS SECTION (COLLAPSED BY DEFAULT) -->
+<!-- ===================================================================== -->
+<div class="glass-card" id="advancedAnalysisSection" style="margin-bottom: 24px; border-top: 2px dashed rgba(148, 163, 184, 0.2);">
+  <details style="cursor: pointer;">
+    <summary style="font-size: 0.86rem; font-weight: 700; color: #94a3b8; display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+      <span>⚙️ Advanced Analysis & Research Studio (Optional Faculty / Industry Mode)</span>
+      <span style="font-size: 0.75rem; color: var(--cyan-light);">Click to expand ▾</span>
+    </summary>
+    <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+      <p>
+        The complete project includes advanced research modules with automated caching, cross-validation tuning, and production pipeline deployment:
+      </p>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+        <a href="/academic" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">Master Unified Dashboard</a>
+        <a href="/academic/labs/schema-explorer" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">Schema SQL Explorer</a>
+        <a href="/academic/labs/classification" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">12-Way Classification Benchmark</a>
+        <a href="/academic/labs/regression" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">7-Model Regression Suite</a>
+        <a href="/academic/labs/clustering" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">2D PCA Clustering Console</a>
+        <a href="/academic/labs/association-rules" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">Apriori Parameter Tuner</a>
+        <a href="/academic/labs/olap" class="btn btn-secondary btn-sm" style="font-size: 0.75rem;">Multi-Dimensional OLAP Studio</a>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ===================================================================== -->
+<!-- CHART SCRIPTS -->
+<!-- ===================================================================== -->
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  {% if lab.lab_number == 3 %}
+    // Lab 3 Bar
+    new Chart(document.getElementById('chartLab3Bar'), {
+      type: 'bar',
+      data: {
+        labels: {{ lab.visuals.bar_chart.labels|tojson }},
+        datasets: [{
+          label: 'Order Count',
+          data: {{ lab.visuals.bar_chart['values']|tojson }},
+          backgroundColor: '#0ea5e9'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    // Lab 3 Pie
+    new Chart(document.getElementById('chartLab3Pie'), {
+      type: 'pie',
+      data: {
+        labels: {{ lab.visuals.pie_chart.labels|tojson }},
+        datasets: [{
+          data: {{ lab.visuals.pie_chart['values']|tojson }},
+          backgroundColor: ['#0ea5e9', '#38bdf8', '#34d399', '#f59e0b', '#a855f7', '#64748b']
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // Lab 3 Hist
+    new Chart(document.getElementById('chartLab3Hist'), {
+      type: 'bar',
+      data: {
+        labels: {{ lab.visuals.hist_chart.labels|tojson }},
+        datasets: [{
+          label: 'Shipment Frequency',
+          data: {{ lab.visuals.hist_chart['values']|tojson }},
+          backgroundColor: '#34d399'
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+
+    // Lab 3 Scatter
+    new Chart(document.getElementById('chartLab3Scatter'), {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: 'Shipment Orders',
+          data: {{ lab.visuals.scatter_pts|tojson }},
+          backgroundColor: '#f59e0b'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { title: { display: true, text: 'Scheduled Days' } },
+          y: { title: { display: true, text: 'Actual Days' } }
+        }
+      }
+    });
+
+  {% elif lab.lab_number == 4 %}
+    // Lab 4 SLR
+    new Chart(document.getElementById('chartLab4SLR'), {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: 'Actual vs Predicted',
+          data: {{ lab.model_comparison.points_slr|map(attribute='actual')|list|tojson }}.map((a, i) => ({ x: a, y: {{ lab.model_comparison.points_slr|map(attribute='pred')|list|tojson }}[i] })),
+          backgroundColor: '#38bdf8'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { title: { display: true, text: 'Actual Shipping Days' } },
+          y: { title: { display: true, text: 'Predicted Days (SLR)' } }
+        }
+      }
+    });
+
+    // Lab 4 MLR
+    new Chart(document.getElementById('chartLab4MLR'), {
+      type: 'scatter',
+      data: {
+        datasets: [{
+          label: 'Actual vs Predicted',
+          data: {{ lab.model_comparison.points_mlr|map(attribute='actual')|list|tojson }}.map((a, i) => ({ x: a, y: {{ lab.model_comparison.points_mlr|map(attribute='pred')|list|tojson }}[i] })),
+          backgroundColor: '#34d399'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { title: { display: true, text: 'Actual Shipping Days' } },
+          y: { title: { display: true, text: 'Predicted Days (MLR)' } }
+        }
+      }
+    });
+
+  {% elif lab.lab_number == 5 %}
+    // Lab 5 Mutual Info
+    new Chart(document.getElementById('chartLab5MI'), {
+      type: 'bar',
+      data: {
+        labels: {{ lab.attribute_relevance|map(attribute='feature')|list|tojson }},
+        datasets: [{
+          label: 'Mutual Information Score',
+          data: {{ lab.attribute_relevance|map(attribute='score')|list|tojson }},
+          backgroundColor: '#0ea5e9'
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } }
+      }
+    });
+
+  {% elif lab.lab_number == 6 %}
+    // Lab 6 Comparison Bar
+    new Chart(document.getElementById('chartLab6Comp'), {
+      type: 'bar',
+      data: {
+        labels: ['Accuracy (%)', 'F1-Score (%)'],
+        datasets: [
+          { label: 'Decision Tree (Lab 5)', data: [69.4, 68.9], backgroundColor: '#0ea5e9' },
+          { label: 'Gaussian Naive Bayes (Lab 6)', data: [65.2, 65.1], backgroundColor: '#34d399' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { min: 50, max: 80 } }
+      }
+    });
+
+  {% elif lab.lab_number == 7 %}
+    // Lab 7 Elbow
+    new Chart(document.getElementById('chartLab7Elbow'), {
+      type: 'line',
+      data: {
+        labels: {{ lab.elbow_curve|map(attribute='k')|list|tojson }},
+        datasets: [{
+          label: 'WCSS (Inertia)',
+          data: {{ lab.elbow_curve|map(attribute='wcss')|list|tojson }},
+          borderColor: '#0ea5e9',
+          backgroundColor: 'rgba(14, 165, 233, 0.1)',
+          fill: true,
+          pointRadius: 5,
+          pointBackgroundColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { title: { display: true, text: 'Number of Clusters (k)' } },
+          y: { title: { display: true, text: 'Within-Cluster Sum of Squares (WCSS)' } }
+        }
+      }
+    });
+  {% endif %}
+});
+</script>
+{% endblock %}

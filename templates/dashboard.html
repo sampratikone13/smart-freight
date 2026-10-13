@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+{% block page_title %}Operational Logistics & Prediction History{% endblock %}
+
+{% block content %}
+<!-- KPI Cards — all values from SQLite via kpis dict -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <span class="kpi-label">Logged Inferences</span>
+      <div class="kpi-icon-wrap" style="background:rgba(14,165,233,.15);color:var(--cyan-light);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+      </div>
+    </div>
+    <div class="kpi-value">{{ kpis.total_predictions }}</div>
+    <div class="kpi-subtext">Predictions recorded in SQLite</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <span class="kpi-label">Avg Predicted Duration</span>
+      <div class="kpi-icon-wrap" style="background:rgba(99,102,241,.15);color:#818cf8;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      </div>
+    </div>
+    <div class="kpi-value">{{ kpis.avg_predicted_days }}d</div>
+    <div class="kpi-subtext">Mean transit time across all logged orders</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <span class="kpi-label">Carrier Delay Risk Rate</span>
+      <div class="kpi-icon-wrap" style="background:rgba(244,63,94,.15);color:#fb7185;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"></polygon><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+      </div>
+    </div>
+    <div class="kpi-value">{{ kpis.delayed_risk_rate }}%</div>
+    <div class="kpi-subtext">{{ kpis.delayed_risk_count }} orders with SLA variance</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-top">
+      <span class="kpi-label">Production Model</span>
+      <div class="kpi-icon-wrap" style="background:rgba(16,185,129,.15);color:#34d399;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+      </div>
+    </div>
+    <div class="kpi-value" style="font-size:1.15rem;font-family:var(--font-sans);">{{ metadata.selected_final_model }}</div>
+    <div class="kpi-subtext">RMSE {{ metadata.metrics.rmse }}d · MAE {{ metadata.metrics.mae }}d · R² {{ metadata.metrics.r2 }}</div>
+  </div>
+</div>
+
+{% if kpis.total_predictions == 0 %}
+<!-- Empty state — no history, no demo data -->
+<div class="glass-card" style="text-align:center;padding:48px 24px;margin-bottom:24px;">
+  <div style="font-size:3.5rem;margin-bottom:12px;">📭</div>
+  <h3 style="font-size:1.15rem;margin-bottom:8px;">No Predictions Recorded Yet</h3>
+  <p style="font-size:.88rem;color:var(--text-muted);max-width:480px;margin:0 auto 24px;">
+    The prediction log is empty. Submit your first order on the Shipping Predictor page and the dashboard will populate with real data.
+  </p>
+  <a href="{{ url_for('predict_page') }}" class="btn btn-primary">
+    Make a Prediction
+  </a>
+</div>
+{% else %}
+
+<!-- Charts Grid -->
+<div class="grid-2">
+  <div class="glass-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><span class="card-icon">📈</span> Shipping Mode Distribution</h3>
+        <p class="card-subtitle">Volume breakdown across freight delivery classes (from SQLite log)</p>
+      </div>
+    </div>
+    <div style="height:240px;position:relative;">
+      <canvas id="shippingModeChart"></canvas>
+    </div>
+  </div>
+
+  <div class="glass-card">
+    <div class="card-header">
+      <div>
+        <h3 class="card-title"><span class="card-icon">⚡</span> Delivery Speed Tiers</h3>
+        <p class="card-subtitle">Distribution of predicted transit categories (Fast / Standard / Longer)</p>
+      </div>
+    </div>
+    <div style="height:240px;position:relative;">
+      <canvas id="speedTierChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- High Duration Watchlist: Longer Duration orders (>=4.0 predicted) -->
+<div class="glass-card" style="margin-bottom:24px;">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title"><span class="card-icon">🚨</span> Longer Duration Watchlist (≥ 4.0 Predicted Days)</h3>
+      <p class="card-subtitle">Orders requiring supply chain buffer management or expedited routing review</p>
+    </div>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Market</th>
+          <th>Region / Country</th>
+          <th>Shipping Mode</th>
+          <th>Scheduled</th>
+          <th>Predicted Transit</th>
+          <th>Category</th>
+          <th>Sales ($)</th>
+          <th>Tier</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set watchlist = history | selectattr('predicted_days', 'ge', 4.0) | list %}
+        {% if watchlist %}
+          {% for p in watchlist[:8] %}
+          <tr>
+            <td>#{{ p.id }}</td>
+            <td>{{ p.market }}</td>
+            <td>{{ p.order_region }} / {{ p.order_country }}</td>
+            <td>{{ p.shipping_mode }}</td>
+            <td style="font-family:var(--font-mono);">{{ p.scheduled_days }}d</td>
+            <td style="font-weight:700;font-family:var(--font-mono);color:#fbbf24;">{{ p.predicted_days }}d</td>
+            <td>{{ p.category_name }}</td>
+            <td style="font-family:var(--font-mono);">${{ p.sales }}</td>
+            <td><span class="badge badge-warning">Longer Duration</span></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">
+              No longer-duration orders in recent history.
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Prediction History -->
+<div class="glass-card">
+  <div class="card-header">
+    <div>
+      <h3 class="card-title"><span class="card-icon">📋</span> Recent Prediction History</h3>
+      <p class="card-subtitle">Showing latest {{ history|length }} predictions from SQLite</p>
+    </div>
+    <a href="{{ url_for('export_history_csv') }}" class="btn btn-secondary btn-sm">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Export CSV
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Logged At</th>
+          <th>Predicted Days</th>
+          <th>Scheduled</th>
+          <th>Speed Tier</th>
+          <th>Delay Risk</th>
+          <th>Shipping Mode</th>
+          <th>Market</th>
+          <th>Category</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in history %}
+        <tr>
+          <td>#{{ p.id }}</td>
+          <td style="color:var(--text-dim);font-size:.78rem;">{{ p.created_at }}</td>
+          <td style="font-weight:700;font-family:var(--font-mono);color:var(--cyan-light);">{{ p.predicted_days }}d</td>
+          <td style="font-family:var(--font-mono);">{{ p.scheduled_days }}d</td>
+          <td>
+            {% if p.speed_category == 'Fast / Same-Day' %}
+              <span class="badge badge-success">{{ p.speed_category }}</span>
+            {% elif p.speed_category == 'Standard Duration' %}
+              <span class="badge badge-primary">{{ p.speed_category }}</span>
+            {% else %}
+              <span class="badge badge-warning">{{ p.speed_category }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if p.is_delayed_risk %}
+              <span class="badge badge-danger">Delay Risk</span>
+            {% else %}
+              <span class="badge badge-success">On-Time</span>
+            {% endif %}
+          </td>
+          <td>{{ p.shipping_mode }}</td>
+          <td>{{ p.market }}</td>
+          <td>{{ p.category_name }}</td>
+          <td><span class="badge badge-neutral" style="font-size:.65rem;">{{ p.source }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if kpis.total_predictions > 0 %}
+<script>
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+const modeLabels = {{ kpis.shipping_mode_distribution.keys()|list|tojson }};
+const modeValues = {{ kpis.shipping_mode_distribution.values()|list|tojson }};
+const speedLabels = {{ kpis.speed_distribution.keys()|list|tojson }};
+const speedValues = {{ kpis.speed_distribution.values()|list|tojson }};
+
+new Chart(document.getElementById('shippingModeChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: modeLabels,
+    datasets: [{
+      label: 'Order Count',
+      data: modeValues,
+      backgroundColor: 'rgba(14,165,233,.65)',
+      borderColor: '#0ea5e9',
+      borderWidth: 1.5,
+      borderRadius: 6
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,.05)' } },
+      y: { grid: { color: 'rgba(255,255,255,.05)' }, beginAtZero: true }
+    }
+  }
+});
+
+new Chart(document.getElementById('speedTierChart').getContext('2d'), {
+  type: 'doughnut',
+  data: {
+    labels: speedLabels,
+    datasets: [{
+      data: speedValues,
+      backgroundColor: ['#10b981', '#0ea5e9', '#f59e0b'],
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom' } },
+    cutout: '68%'
+  }
+});
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,644 @@
+{% extends "base.html" %}
+
+{% block title %}Labs 4–5: Supervised Classification & Class Imbalance{% endblock %}
+{% block page_title %}Labs 4–5: Supervised Classification & Class-Imbalance Lab{% endblock %}
+
+{% block content %}
+<div class="lab-header" style="margin-bottom: 24px;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+    <div>
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <span class="badge badge-primary">DWM Practical Labs 4–5</span>
+        <span class="badge badge-success">Binary Target: Delivery Delay Risk</span>
+      </div>
+      <h2 style="font-size: 1.5rem; font-weight: 800; color: #fff; margin-bottom: 4px;">
+        Logistics Delay Risk Classification & SMOTE Resampling
+      </h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">
+        Comparative supervised classification across Logistic Regression, Decision Tree, Random Forest, and Gaussian Naive Bayes with strict pre-shipment feature boundaries.
+      </p>
+    </div>
+
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="/api/academic/classification/export?format=csv" class="btn btn-secondary btn-sm" id="btnExportCsv">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Export Runs (CSV)
+      </a>
+      <a href="/api/academic/classification/export?format=json" class="btn btn-secondary btn-sm" id="btnExportJson">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        Export Runs (JSON)
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Strict Leakage Prevention Notice Banner -->
+<div class="glass-card" style="margin-bottom: 24px; border-left: 4px solid var(--rose-danger); background: rgba(244, 63, 94, 0.05);">
+  <div style="display: flex; gap: 12px; align-items: flex-start;">
+    <div style="background: rgba(244, 63, 94, 0.15); border-radius: 6px; padding: 6px; color: #fb7185; font-size: 1.25rem;">
+      🛡️
+    </div>
+    <div>
+      <h4 style="font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 4px;">
+        Strict Pre-Shipment Leakage Prevention Boundary
+      </h4>
+      <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 8px;">
+        This experiment predicts <code>delivery_delay_class = (Days real > Days scheduled)</code> strictly using parameters known <em>prior to shipment release</em>. Post-fulfillment attributes (<code>Late_delivery_risk</code>, <code>Delivery Status</code>, <code>shipping date (DateOrders)</code>, and <code>Days for shipping (real)</code>) are completely quarantined from the feature matrix to ensure valid academic evaluation.
+      </p>
+      <div style="font-size: 0.75rem; color: var(--cyan-light); font-family: var(--font-mono);">
+        ✓ Evaluated on real held-out test split (20%, seed 42) · Never resamples validation/test data
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Interactive Configuration Panel -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <div class="card-header" style="margin-bottom: 16px;">
+    <div>
+      <h3 class="card-title">
+        <span class="card-icon">⚙️</span>
+        Experiment Hyperparameter & Imbalance Configuration
+      </h3>
+      <p class="card-subtitle">Select classifier, sampling strategy, and dataset partitioning parameters</p>
+    </div>
+  </div>
+
+  <form id="expConfigForm" onsubmit="handleRunExperiment(event)">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px;">
+      <!-- Algorithm Selector -->
+      <div>
+        <label class="form-label" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">
+          Classification Algorithm:
+        </label>
+        <select id="cfgAlgorithm" class="form-select" onchange="updateHyperparamInputs()" style="width: 100%; background: #0f172a; color: #fff; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 8px 12px; font-size: 0.85rem;">
+          <option value="random_forest" selected>Random Forest Classifier</option>
+          <option value="decision_tree">Decision Tree Classifier</option>
+          <option value="logistic_regression">Logistic Regression</option>
+          <option value="gaussian_nb">Gaussian Naive Bayes</option>
+        </select>
+      </div>
+
+      <!-- Imbalance Strategy Selector -->
+      <div>
+        <label class="form-label" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">
+          Imbalance Handling Strategy:
+        </label>
+        <select id="cfgStrategy" class="form-select" style="width: 100%; background: #0f172a; color: #fff; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 8px 12px; font-size: 0.85rem;">
+          <option value="baseline" selected>Baseline (Raw Natural Imbalance)</option>
+          <option value="balanced">Balanced Class Weights (class_weight='balanced')</option>
+          <option value="smote">SMOTE / SMOTENC (Train Set Over-sampling)</option>
+        </select>
+      </div>
+
+      <!-- Test Size -->
+      <div>
+        <label class="form-label" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">
+          Held-out Test Split Ratio:
+        </label>
+        <select id="cfgTestSize" class="form-select" style="width: 100%; background: #0f172a; color: #fff; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 8px 12px; font-size: 0.85rem;">
+          <option value="0.20" selected>20% Test (80% Train - Standard)</option>
+          <option value="0.25">25% Test (75% Train)</option>
+          <option value="0.30">30% Test (70% Train)</option>
+        </select>
+      </div>
+
+      <!-- Random Seed -->
+      <div>
+        <label class="form-label" style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block;">
+          Random Seed (Reproducibility):
+        </label>
+        <input type="number" id="cfgSeed" value="42" class="form-control" style="width: 100%; background: #0f172a; color: #fff; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 8px 12px; font-size: 0.85rem;">
+      </div>
+    </div>
+
+    <!-- Dynamic Model Hyperparameters Block -->
+    <div id="dynamicHpContainer" style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 16px; display: flex; gap: 16px; flex-wrap: wrap; align-items: center;">
+      <!-- Populated via JS -->
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+      <button type="submit" class="btn btn-primary" id="btnRunExperiment" style="display: flex; align-items: center; gap: 8px;">
+        <span id="runSpinner" style="display: none;">⏳</span>
+        <span>Run Classification Experiment</span>
+      </button>
+    </div>
+  </form>
+</div>
+
+<!-- Class Distribution Status Cards -->
+<div class="kpi-grid" style="margin-bottom: 24px;">
+  <div class="kpi-card">
+    <div class="kpi-label">Natural Class Imbalance</div>
+    <div class="kpi-value" style="color: var(--cyan-light);">
+      {{ "{:,}".format(initial_res.class_counts_original.class_0_ontime) }} vs {{ "{:,}".format(initial_res.class_counts_original.class_1_delayed) }}
+    </div>
+    <div class="kpi-subtext">On-Time (41%) vs Delayed (59%) · Ratio: 1 : 1.44</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Training Resampled Balance</div>
+    <div class="kpi-value" id="kpiResampleCount" style="color: #34d399;">
+      {{ "{:,}".format(initial_res.train_class_counts_after.class_0_ontime) }} / {{ "{:,}".format(initial_res.train_class_counts_after.class_1_delayed) }}
+    </div>
+    <div class="kpi-subtext" id="kpiResampleSubtext">
+      {% if initial_res.imbalance_strategy == 'smote' %}1:1 Synthetic Balance via SMOTENC{% else %}Unmodified Training Set Grain{% endif %}
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Active Model & Strategy</div>
+    <div class="kpi-value" id="kpiActiveModel" style="font-size: 1.1rem; color: #fff;">
+      {{ initial_res.model_display_name }}
+    </div>
+    <div class="kpi-subtext" id="kpiActiveStrategy">{{ initial_res.imbalance_strategy|title }} Strategy</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Training Duration</div>
+    <div class="kpi-value" id="kpiTrainTime" style="font-family: var(--font-mono); color: #a78bfa;">
+      {{ initial_res.metrics.training_time_seconds }}s
+    </div>
+    <div class="kpi-subtext">Total time: {{ initial_res.total_execution_seconds }}s</div>
+  </div>
+</div>
+
+<!-- KPI Metrics Grid (7 Required Metrics) -->
+<div class="kpi-grid" style="margin-bottom: 24px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+  <div class="kpi-card">
+    <div class="kpi-label">Accuracy</div>
+    <div class="kpi-value" id="valAccuracy" style="color: #38bdf8;">{{ initial_res.metrics.accuracy }}</div>
+    <div class="kpi-subtext">Overall correctness</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Precision (Delayed)</div>
+    <div class="kpi-value" id="valPrecision" style="color: #34d399;">{{ initial_res.metrics.precision }}</div>
+    <div class="kpi-subtext">TP / (TP + FP)</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Recall (Sensitivity)</div>
+    <div class="kpi-value" id="valRecall" style="color: #f59e0b;">{{ initial_res.metrics.recall }}</div>
+    <div class="kpi-subtext">TP / (TP + FN)</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">Specificity</div>
+    <div class="kpi-value" id="valSpecificity" style="color: #a78bfa;">{{ initial_res.metrics.specificity }}</div>
+    <div class="kpi-subtext">TN / (TN + FP)</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">F1-Score</div>
+    <div class="kpi-value" id="valF1" style="color: #38bdf8;">{{ initial_res.metrics.f1_score }}</div>
+    <div class="kpi-subtext">Harmonic Mean (P & R)</div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-label">ROC-AUC Score</div>
+    <div class="kpi-value" id="valAuc" style="color: #10b981;">{{ initial_res.metrics.roc_auc }}</div>
+    <div class="kpi-subtext">Area Under Curve</div>
+  </div>
+</div>
+
+<!-- Diagnostics Row: Confusion Matrix + Feature Importance -->
+<div class="grid-2-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+  <!-- Confusion Matrix Heatmap -->
+  <div class="glass-card">
+    <div class="card-header" style="margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 0.95rem;">Confusion Matrix (Held-out Test Set)</h3>
+        <p class="card-subtitle">True Negatives, False Positives, False Negatives, True Positives</p>
+      </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 10px;">
+      <!-- TN -->
+      <div class="cm-cell" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 14px; text-align: center;">
+        <div style="font-size: 0.72rem; text-transform: uppercase; color: #34d399; font-weight: 700;">True Negatives (TN)</div>
+        <div id="cmTN" style="font-size: 1.4rem; font-weight: 800; color: #fff; font-family: var(--font-mono); margin: 4px 0;">
+          {{ "{:,}".format(initial_res.confusion_matrix.tn) }}
+        </div>
+        <div id="cmTNPct" style="font-size: 0.75rem; color: var(--text-dim);">{{ initial_res.confusion_matrix.tn_pct }}% (Correctly On-Time)</div>
+      </div>
+
+      <!-- FP -->
+      <div class="cm-cell" style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 8px; padding: 14px; text-align: center;">
+        <div style="font-size: 0.72rem; text-transform: uppercase; color: #fb7185; font-weight: 700;">False Positives (FP)</div>
+        <div id="cmFP" style="font-size: 1.4rem; font-weight: 800; color: #fff; font-family: var(--font-mono); margin: 4px 0;">
+          {{ "{:,}".format(initial_res.confusion_matrix.fp) }}
+        </div>
+        <div id="cmFPPct" style="font-size: 0.75rem; color: var(--text-dim);">{{ initial_res.confusion_matrix.fp_pct }}% (Type I Error)</div>
+      </div>
+
+      <!-- FN -->
+      <div class="cm-cell" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 14px; text-align: center;">
+        <div style="font-size: 0.72rem; text-transform: uppercase; color: #f59e0b; font-weight: 700;">False Negatives (FN)</div>
+        <div id="cmFN" style="font-size: 1.4rem; font-weight: 800; color: #fff; font-family: var(--font-mono); margin: 4px 0;">
+          {{ "{:,}".format(initial_res.confusion_matrix.fn) }}
+        </div>
+        <div id="cmFNPct" style="font-size: 0.75rem; color: var(--text-dim);">{{ initial_res.confusion_matrix.fn_pct }}% (Type II Error - Costly Delay Miss)</div>
+      </div>
+
+      <!-- TP -->
+      <div class="cm-cell" style="background: rgba(14, 165, 233, 0.15); border: 1px solid rgba(14, 165, 233, 0.3); border-radius: 8px; padding: 14px; text-align: center;">
+        <div style="font-size: 0.72rem; text-transform: uppercase; color: var(--cyan-light); font-weight: 700;">True Positives (TP)</div>
+        <div id="cmTP" style="font-size: 1.4rem; font-weight: 800; color: #fff; font-family: var(--font-mono); margin: 4px 0;">
+          {{ "{:,}".format(initial_res.confusion_matrix.tp) }}
+        </div>
+        <div id="cmTPPct" style="font-size: 0.75rem; color: var(--text-dim);">{{ initial_res.confusion_matrix.tp_pct }}% (Correctly Flagged Delay)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature Importance -->
+  <div class="glass-card">
+    <div class="card-header" style="margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 0.95rem;">Key Predictive Features</h3>
+        <p class="card-subtitle">Features most influential in delay determination</p>
+      </div>
+    </div>
+    <div style="height: 220px; position: relative;">
+      <canvas id="featureImpChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Curves Row: ROC Curve + Precision-Recall Curve -->
+<div class="grid-2-1" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+  <div class="glass-card">
+    <div class="card-header" style="margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 0.95rem;">ROC Diagnostic Curve</h3>
+        <p class="card-subtitle">True Positive Rate (Sensitivity) vs False Positive Rate (1 - Specificity)</p>
+      </div>
+    </div>
+    <div style="height: 240px; position: relative;">
+      <canvas id="rocChart"></canvas>
+    </div>
+  </div>
+
+  <div class="glass-card">
+    <div class="card-header" style="margin-bottom: 12px;">
+      <div>
+        <h3 class="card-title" style="font-size: 0.95rem;">Precision-Recall Tradeoff Curve</h3>
+        <p class="card-subtitle">Precision vs Recall across classification probability thresholds</p>
+      </div>
+    </div>
+    <div style="height: 240px; position: relative;">
+      <canvas id="prChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- 12-Way Benchmark Comparison Matrix -->
+<div class="glass-card" style="margin-bottom: 24px;">
+  <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+    <div>
+      <h3 class="card-title">
+        <span class="card-icon">📊</span>
+        Academic Benchmark: 4 Models × 3 Imbalance Strategies Matrix
+      </h3>
+      <p class="card-subtitle">Systematic comparative evaluation across Baseline, Balanced, and SMOTENC</p>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Algorithm</th>
+          <th>Strategy</th>
+          <th>Accuracy</th>
+          <th>Precision</th>
+          <th>Recall</th>
+          <th>Specificity</th>
+          <th>F1-Score</th>
+          <th>ROC-AUC</th>
+          <th>Train Time</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="benchmarkTbody">
+        {% for row in benchmarks %}
+        <tr class="benchmark-row">
+          <td style="font-weight: 700; color: #fff;">{{ row.algorithm }}</td>
+          <td>
+            <span class="badge {% if row.strategy == 'Smote' %}badge-success{% elif row.strategy == 'Balanced' %}badge-warning{% else %}badge-neutral{% endif %}">
+              {{ row.strategy }}
+            </span>
+          </td>
+          <td style="font-family: var(--font-mono);">{{ row.accuracy }}</td>
+          <td style="font-family: var(--font-mono);">{{ row.precision }}</td>
+          <td style="font-family: var(--font-mono); color: #f59e0b;">{{ row.recall }}</td>
+          <td style="font-family: var(--font-mono); color: #a78bfa;">{{ row.specificity }}</td>
+          <td style="font-family: var(--font-mono); font-weight: 700; color: var(--cyan-light);">{{ row.f1_score }}</td>
+          <td style="font-family: var(--font-mono); font-weight: 700; color: #10b981;">{{ row.roc_auc }}</td>
+          <td style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--text-dim);">{{ row.training_time }}s</td>
+          <td>
+            <button class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 0.72rem;" onclick="loadBenchmarkConfig('{{ row.algorithm }}', '{{ row.strategy }}')">
+              Inspect
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Academic Viva-Voce Interpretation Accordion -->
+<div class="glass-card" style="margin-bottom: 24px; border-left: 4px solid var(--cyan-primary);">
+  <div style="display: flex; gap: 14px; align-items: flex-start;">
+    <div style="background: rgba(14, 165, 233, 0.15); border-radius: var(--radius-sm); padding: 8px; color: var(--cyan-light); font-size: 1.25rem;">
+      🎓
+    </div>
+    <div style="flex: 1;">
+      <h4 style="font-size: 1rem; font-weight: 700; color: #fff; margin-bottom: 6px;">
+        Viva-Voce Academic Review: Class Imbalance & Evaluation Diagnostics
+      </h4>
+      <p style="font-size: 0.88rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px;">
+        In logistics delay monitoring, accuracy alone is deceptive because predicting the majority class yields high surface accuracy while missing critical delay events. <strong>Recall (Sensitivity)</strong> measures the proportion of actual delayed orders successfully flagged, while <strong>Specificity</strong> measures on-time shipments correctly identified.
+      </p>
+
+      <details style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 10px 14px;">
+        <summary style="cursor: pointer; font-size: 0.82rem; font-weight: 700; color: var(--cyan-light);">
+          📖 Viva Questions & Answers: Why SMOTE on Training Only? (Click to expand)
+        </summary>
+        <div style="margin-top: 10px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.7;">
+          <p><strong>Q: Why must SMOTE never be applied to the test or validation set?</strong></p>
+          <p style="margin-bottom: 8px;">
+            A: The test set must represent the true, unadulterated distribution of reality. If synthetic samples are introduced into the evaluation split, the model is tested on artificial data points rather than genuine future transactions, causing severe evaluation bias and data leakage.
+          </p>
+          <p><strong>Q: How does SMOTENC differ from regular SMOTE?</strong></p>
+          <p>
+            A: Regular SMOTE performs Euclidean vector interpolation between k-nearest neighbors. On categorical attributes (e.g. carrier modes or customer regions), vector interpolation produces non-existent fractional states. <code>SMOTENC</code> interpolates continuous dimensions linearly while computing the statistical mode for categorical attributes.
+          </p>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  let currentResult = {{ initial_res|tojson }};
+  let rocChartInstance = null;
+  let prChartInstance = null;
+  let featChartInstance = null;
+
+  function updateHyperparamInputs() {
+    const alg = document.getElementById('cfgAlgorithm').value;
+    const container = document.getElementById('dynamicHpContainer');
+    container.innerHTML = '';
+
+    if (alg === 'random_forest') {
+      container.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">n_estimators:</label>
+          <select id="hp_n_estimators" style="background:#0f172a; color:#fff; border:1px solid var(--border-subtle); border-radius:4px; padding:3px 8px; font-size:0.75rem;">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">max_depth:</label>
+          <select id="hp_max_depth" style="background:#0f172a; color:#fff; border:1px solid var(--border-subtle); border-radius:4px; padding:3px 8px; font-size:0.75rem;">
+            <option value="8">8</option>
+            <option value="12" selected>12</option>
+            <option value="16">16</option>
+          </select>
+        </div>
+      `;
+    } else if (alg === 'decision_tree') {
+      container.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">max_depth:</label>
+          <select id="hp_max_depth" style="background:#0f172a; color:#fff; border:1px solid var(--border-subtle); border-radius:4px; padding:3px 8px; font-size:0.75rem;">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="15">15</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">min_samples_split:</label>
+          <select id="hp_min_samples" style="background:#0f172a; color:#fff; border:1px solid var(--border-subtle); border-radius:4px; padding:3px 8px; font-size:0.75rem;">
+            <option value="2">2</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+          </select>
+        </div>
+      `;
+    } else if (alg === 'logistic_regression') {
+      container.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">C (Inverse Reg):</label>
+          <select id="hp_C" style="background:#0f172a; color:#fff; border:1px solid var(--border-subtle); border-radius:4px; padding:3px 8px; font-size:0.75rem;">
+            <option value="0.1">0.1</option>
+            <option value="1.0" selected>1.0</option>
+            <option value="10.0">10.0</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:0.75rem; color:var(--text-muted);">max_iter:</label>
+          <select id="hp_max_iter" style="background:#0f172a; color:#fff; border:1px solid var(--border-subtle); border-radius:4px; padding:3px 8px; font-size:0.75rem;">
+            <option value="500" selected>500</option>
+            <option value="1000">1000</option>
+          </select>
+        </div>
+      `;
+    } else {
+      container.innerHTML = `<span style="font-size:0.75rem; color:var(--text-dim);">Gaussian Naive Bayes relies on natural feature density estimation; zero tunable tree parameters.</span>`;
+    }
+  }
+
+  function renderCharts(res) {
+    // 1. ROC Curve
+    const rocData = res.curves.roc_curve || [];
+    const ctxRoc = document.getElementById('rocChart').getContext('2d');
+    if (rocChartInstance) rocChartInstance.destroy();
+    rocChartInstance = new Chart(ctxRoc, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'ROC Curve (AUC = ' + res.metrics.roc_auc + ')',
+            data: rocData,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            fill: true,
+            tension: 0.2,
+            pointRadius: 2
+          },
+          {
+            label: 'Chance Diagonal',
+            data: [{x: 0, y: 0}, {x: 1, y: 1}],
+            borderColor: 'rgba(255, 255, 255, 0.3)',
+            borderDash: [5, 5],
+            pointRadius: 0
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: {
+          x: { type: 'linear', min: 0, max: 1, title: { display: true, text: 'False Positive Rate (1 - Specificity)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { type: 'linear', min: 0, max: 1, title: { display: true, text: 'True Positive Rate (Recall)', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+
+    // 2. PR Curve
+    const prData = res.curves.pr_curve || [];
+    const ctxPr = document.getElementById('prChart').getContext('2d');
+    if (prChartInstance) prChartInstance.destroy();
+    prChartInstance = new Chart(ctxPr, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: 'Precision-Recall Curve',
+          data: prData,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          fill: true,
+          tension: 0.2,
+          pointRadius: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: {
+          x: { type: 'linear', min: 0, max: 1, title: { display: true, text: 'Recall', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { type: 'linear', min: 0, max: 1, title: { display: true, text: 'Precision', color: '#94a3b8' }, ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+
+    // 3. Feature Importance
+    const featData = res.feature_importances || [];
+    const ctxFeat = document.getElementById('featureImpChart').getContext('2d');
+    if (featChartInstance) featChartInstance.destroy();
+    featChartInstance = new Chart(ctxFeat, {
+      type: 'bar',
+      data: {
+        labels: featData.map(f => f.feature.length > 18 ? f.feature.substring(0, 16) + '…' : f.feature),
+        datasets: [{
+          label: 'Importance / Absolute Weight',
+          data: featData.map(f => f.importance),
+          backgroundColor: '#818cf8',
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#94a3b8', font: { size: 9 } }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  function updateDashboardUI(res) {
+    currentResult = res;
+
+    // Class distribution
+    document.getElementById('kpiResampleCount').textContent = `${Number(res.train_class_counts_after.class_0_ontime).toLocaleString()} / ${Number(res.train_class_counts_after.class_1_delayed).toLocaleString()}`;
+    document.getElementById('kpiResampleSubtext').textContent = res.imbalance_strategy === 'smote' ? '1:1 Balanced via SMOTENC' : 'Unmodified Training Set Grain';
+    document.getElementById('kpiActiveModel').textContent = res.model_display_name;
+    document.getElementById('kpiActiveStrategy').textContent = res.imbalance_strategy.toUpperCase() + ' Strategy';
+    document.getElementById('kpiTrainTime').textContent = res.metrics.training_time_seconds + 's';
+
+    // Metrics
+    document.getElementById('valAccuracy').textContent = res.metrics.accuracy;
+    document.getElementById('valPrecision').textContent = res.metrics.precision;
+    document.getElementById('valRecall').textContent = res.metrics.recall;
+    document.getElementById('valSpecificity').textContent = res.metrics.specificity;
+    document.getElementById('valF1').textContent = res.metrics.f1_score;
+    document.getElementById('valAuc').textContent = res.metrics.roc_auc;
+
+    // CM
+    const cm = res.confusion_matrix;
+    document.getElementById('cmTN').textContent = Number(cm.tn).toLocaleString();
+    document.getElementById('cmTNPct').textContent = cm.tn_pct + '% (Correctly On-Time)';
+    document.getElementById('cmFP').textContent = Number(cm.fp).toLocaleString();
+    document.getElementById('cmFPPct').textContent = cm.fp_pct + '% (Type I Error)';
+    document.getElementById('cmFN').textContent = Number(cm.fn).toLocaleString();
+    document.getElementById('cmFNPct').textContent = cm.fn_pct + '% (Type II Miss)';
+    document.getElementById('cmTP').textContent = Number(cm.tp).toLocaleString();
+    document.getElementById('cmTPPct').textContent = cm.tp_pct + '% (Correctly Flagged Delay)';
+
+    renderCharts(res);
+  }
+
+  async function handleRunExperiment(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnRunExperiment');
+    const spinner = document.getElementById('runSpinner');
+    btn.disabled = true;
+    spinner.style.display = 'inline';
+
+    const alg = document.getElementById('cfgAlgorithm').value;
+    const strat = document.getElementById('cfgStrategy').value;
+    const testSize = parseFloat(document.getElementById('cfgTestSize').value);
+    const seed = parseInt(document.getElementById('cfgSeed').value, 10);
+
+    const hp = {};
+    if (document.getElementById('hp_n_estimators')) hp.n_estimators = parseInt(document.getElementById('hp_n_estimators').value);
+    if (document.getElementById('hp_max_depth')) hp.max_depth = parseInt(document.getElementById('hp_max_depth').value);
+    if (document.getElementById('hp_min_samples')) hp.min_samples_split = parseInt(document.getElementById('hp_min_samples').value);
+    if (document.getElementById('hp_C')) hp.C = parseFloat(document.getElementById('hp_C').value);
+    if (document.getElementById('hp_max_iter')) hp.max_iter = parseInt(document.getElementById('hp_max_iter').value);
+
+    try {
+      const resp = await fetch('/api/academic/classification/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          algorithm: alg,
+          imbalance_strategy: strat,
+          hyperparams: hp,
+          test_size: testSize,
+          random_state: seed
+        })
+      });
+
+      if (!resp.ok) throw new Error('Experiment run failed');
+      const data = await resp.json();
+      updateDashboardUI(data);
+    } catch (err) {
+      alert('Experiment Error: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      spinner.style.display = 'none';
+    }
+  }
+
+  function loadBenchmarkConfig(algDisplayName, stratName) {
+    const algMap = {
+      'Random Forest Classifier': 'random_forest',
+      'Decision Tree Classifier': 'decision_tree',
+      'Logistic Regression': 'logistic_regression',
+      'Gaussian Naive Bayes': 'gaussian_nb'
+    };
+    const algKey = algMap[algDisplayName] || 'random_forest';
+    document.getElementById('cfgAlgorithm').value = algKey;
+    document.getElementById('cfgStrategy').value = stratName.toLowerCase();
+    updateHyperparamInputs();
+    document.getElementById('btnRunExperiment').click();
+  }
+
+  updateHyperparamInputs();
+  renderCharts(currentResult);
+</script>
+{% endblock %}

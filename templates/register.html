@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Register{% endblock %}
+{% block page_title %}Create Analyst Account{% endblock %}
+
+{% block content %}
+<div style="max-width: 440px; margin: 40px auto;">
+  <div class="glass-card">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div class="brand-icon" style="margin: 0 auto 14px; width: 48px; height: 48px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+      </div>
+      <h3 style="font-size: 1.25rem; font-weight: 700;">Join Smart Freight</h3>
+      <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 4px;">Register to save prediction sessions and export analytics</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('register') }}">
+      <div class="form-group">
+        <label class="form-label" for="username">Username</label>
+        <input type="text" class="form-control" id="username" name="username" required placeholder="Choose a username">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="password" required placeholder="Create a password">
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+        Create Account
+      </button>
+    </form>
+
+    <div style="text-align: center; margin-top: 20px; font-size: 0.82rem; color: var(--text-muted);">
+      Already have an account? <a href="{{ url_for('login') }}" style="color: var(--cyan-light); font-weight: 600; text-decoration: none;">Sign In</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
