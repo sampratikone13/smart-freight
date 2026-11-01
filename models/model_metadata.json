@@ -4,7 +4,7 @@
   "test_size": 0.2,
   "random_state": 42,
   "target": "Days for shipping (real)",
-  "feature_count": 21,
+  "feature_count": 20,
   "numeric_features": [
     "Days for shipment (scheduled)",
     "Order Item Quantity",
@@ -26,133 +26,104 @@
     "Market",
     "Order Region",
     "Order Country",
-    "Order State",
     "Category Name",
     "Department Name"
   ],
   "selected_final_model": "Random Forest Regressor",
   "metrics": {
-    "mae": 0.6938,
-    "mse": 0.9457,
-    "rmse": 0.9725,
-    "r2": 0.64,
-    "train_time_sec": 63.9
+    "mae": 0.887,
+    "mse": 1.42,
+    "rmse": 1.192,
+    "r2": 0.472,
+    "train_time_sec": 79.16
   },
   "model_comparison": [
     {
       "name": "Random Forest Regressor",
-      "mae": 0.6938,
-      "mse": 0.9457,
-      "rmse": 0.9725,
-      "r2": 0.64,
-      "train_time_sec": 63.9
-    },
-    {
-      "name": "Tuned Random Forest Regressor",
-      "mae": 0.8939,
-      "mse": 1.4478,
-      "rmse": 1.2032,
-      "r2": 0.4489,
-      "train_time_sec": 7.92
+      "mae": 0.887,
+      "mse": 1.42,
+      "rmse": 1.192,
+      "r2": 0.472,
+      "train_time_sec": 79.16
     },
     {
       "name": "Decision Tree Regressor",
-      "mae": 0.9061,
-      "mse": 1.5083,
-      "rmse": 1.2281,
-      "r2": 0.4259,
-      "train_time_sec": 0.83
+      "mae": 0.882,
+      "mse": 1.508,
+      "rmse": 1.228,
+      "r2": 0.44,
+      "train_time_sec": 4.45
     },
     {
       "name": "Linear Regression",
-      "mae": 0.9701,
-      "mse": 1.5272,
-      "rmse": 1.2358,
-      "r2": 0.4187,
-      "train_time_sec": 0.78
+      "mae": 0.967,
+      "mse": 1.552,
+      "rmse": 1.246,
+      "r2": 0.423,
+      "train_time_sec": 1.85
     }
   ],
   "top_feature_importances": [
     {
       "feature": "Days for shipment (scheduled)",
-      "importance": 0.40348
-    },
-    {
-      "feature": "Latitude",
-      "importance": 0.068448
-    },
-    {
-      "feature": "Longitude",
-      "importance": 0.056929
-    },
-    {
-      "feature": "order_hour",
-      "importance": 0.047184
-    },
-    {
-      "feature": "order_day",
-      "importance": 0.04147
-    },
-    {
-      "feature": "Order Item Discount",
-      "importance": 0.03474
-    },
-    {
-      "feature": "order_month",
-      "importance": 0.028782
-    },
-    {
-      "feature": "order_weekday",
-      "importance": 0.021278
-    },
-    {
-      "feature": "Sales",
-      "importance": 0.018572
-    },
-    {
-      "feature": "Shipping Mode_First Class",
-      "importance": 0.016758
-    },
-    {
-      "feature": "Product Price",
-      "importance": 0.011756
+      "importance": 0.779034
     },
     {
       "feature": "Shipping Mode_Same Day",
-      "importance": 0.010774
+      "importance": 0.029966
+    },
+    {
+      "feature": "Latitude",
+      "importance": 0.025099
+    },
+    {
+      "feature": "order_hour",
+      "importance": 0.024483
+    },
+    {
+      "feature": "Longitude",
+      "importance": 0.020094
+    },
+    {
+      "feature": "Shipping Mode_First Class",
+      "importance": 0.019996
+    },
+    {
+      "feature": "order_day",
+      "importance": 0.01402
+    },
+    {
+      "feature": "order_month",
+      "importance": 0.009192
+    },
+    {
+      "feature": "Order Item Discount",
+      "importance": 0.008932
+    },
+    {
+      "feature": "order_weekday",
+      "importance": 0.006983
+    },
+    {
+      "feature": "Sales",
+      "importance": 0.004896
+    },
+    {
+      "feature": "Product Price",
+      "importance": 0.003504
     },
     {
       "feature": "Order Item Quantity",
-      "importance": 0.006835
-    },
-    {
-      "feature": "Type_DEBIT",
-      "importance": 0.004667
-    },
-    {
-      "feature": "Type_TRANSFER",
-      "importance": 0.003882
-    },
-    {
-      "feature": "Type_CASH",
-      "importance": 0.003846
-    },
-    {
-      "feature": "Customer Segment_Consumer",
-      "importance": 0.00327
-    },
-    {
-      "feature": "Order State_infrequent_sklearn",
-      "importance": 0.00323
+      "importance": 0.00178
     },
     {
       "feature": "Type_PAYMENT",
-      "importance": 0.003208
+      "importance": 0.001507
     },
     {
-      "feature": "Customer Segment_Corporate",
-      "importance": 0.003014
+      "feature": "Type_CASH",
+      "importance": 0.001363
     }
   ],
-  "evaluated_at": "2026-10-12 19:22:14"
+  "evaluated_at": "2026-11-01 14:25:00"
 }

@@ -14,6 +14,7 @@ from flask import (
     Flask, render_template, request, redirect, url_for,
     flash, session, jsonify, Response,
 )
+from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import data_pipeline
@@ -33,6 +34,9 @@ import college_labs
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "smart_freight_secret_2026_v2")
+
+# Enable CORS for React frontend dev server
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://localhost:3000"]}})
 
 # Initialise SQLite on startup
 db_manager.init_db()
@@ -169,6 +173,89 @@ def api_categories_for_department():
     dept = request.args.get("department", "")
     h = data_pipeline.get_dropdown_hierarchy()
     return jsonify(h.get("dept_categories", {}).get(dept, []))
+
+
+# ── JSON API endpoints for React frontend ────────────────────────────────────
+
+@app.route("/api/dashboard")
+def api_dashboard():
+    """Returns dashboard KPIs, recent predictions, and model metadata as JSON."""
+    kpis = db_manager.get_prediction_kpis()
+    history = db_manager.get_recent_predictions(limit=50)
+    metadata = train_model.get_metadata()
+
+    # Build duration distribution for chart
+    from collections import Counter
+    dist_raw = Counter(int(round(p["predicted_days"])) for p in history)
+    duration_distribution = [
+        {"days": k, "label": f"{k} Day{'s' if k != 1 else ''}", "count": v}
+        for k, v in sorted(dist_raw.items())
+    ]
+
+    # High-duration watchlist (>= 5 days)
+    watchlist = [p for p in history if p.get("predicted_days", 0) >= 5]
+
+    return jsonify({
+        "kpis": kpis,
+        "history": history,
+        "duration_distribution": duration_distribution,
+        "watchlist": watchlist,
+        "model_metadata": {
+            "name": metadata.get("selected_final_model", "Random Forest Regressor"),
+            "mae": metadata.get("metrics", {}).get("mae"),
+            "rmse": metadata.get("metrics", {}).get("rmse"),
+            "r2": metadata.get("metrics", {}).get("r2"),
+            "feature_count": metadata.get("feature_count"),
+            "model_comparison": metadata.get("model_comparison", []),
+            "top_feature_importances": metadata.get("top_feature_importances", []),
+        }
+    })
+
+
+@app.route("/api/batch_predict", methods=["POST"])
+def api_batch_predict():
+    """JSON batch prediction endpoint for React frontend."""
+    global _last_batch_df
+    if "batch_file" not in request.files:
+        return jsonify({"error": "No file uploaded. Please include a batch_file field."}), 400
+
+    file = request.files["batch_file"]
+    if not file.filename:
+        return jsonify({"error": "No file selected."}), 400
+
+    try:
+        df_upload = pd.read_csv(file)
+        df_enriched = train_model.predict_batch(df_upload)
+        _last_batch_df = df_enriched
+
+        user_id = session.get("user_id")
+        for _, row in df_enriched.head(10).iterrows():
+            r_dict = row.to_dict()
+            res = {
+                "predicted_shipping_days": r_dict.get("predicted_shipping_days", 3),
+                "speed_category": r_dict.get("shipping_speed_category", "Standard Duration"),
+                "is_delayed_risk": bool(
+                    r_dict.get("predicted_shipping_days", 3)
+                    > float(r_dict.get("Days for shipment (scheduled)", 4) or 4)
+                ),
+            }
+            db_manager.save_prediction(r_dict, res, user_id=user_id, source="batch")
+
+        results = df_enriched.head(50).to_dict(orient="records")
+        return jsonify({
+            "total": len(df_enriched),
+            "previewed": len(results),
+            "results": results,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/college-labs/catalog")
+def api_college_labs_catalog():
+    """Returns the full college lab catalog."""
+    catalog = college_labs.get_all_college_labs_catalog()
+    return jsonify(catalog)
 
 
 # ── Public Application Routes ─────────────────────────────────────────────────

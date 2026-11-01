@@ -181,8 +181,10 @@ def get_prediction_kpis() -> dict:
             "speed_distribution": {}
         }
         
-    cursor.execute("SELECT AVG(predicted_days) as avg_days FROM predictions")
-    avg_days = cursor.fetchone()['avg_days'] or 0.0
+    cursor.execute("SELECT AVG(predicted_days) as avg_days, MAX(predicted_days) as max_days FROM predictions")
+    row_agg = cursor.fetchone()
+    avg_days = row_agg['avg_days'] or 0.0
+    max_days = row_agg['max_days'] or 0.0
     
     cursor.execute("SELECT COUNT(*) as delayed_cnt FROM predictions WHERE is_delayed_risk = 1")
     delayed_cnt = cursor.fetchone()['delayed_cnt'] or 0
@@ -206,6 +208,7 @@ def get_prediction_kpis() -> dict:
     return {
         "total_predictions": total_count,
         "avg_predicted_days": round(float(avg_days), 2),
+        "max_predicted_days": int(round(float(max_days))),
         "delayed_risk_count": delayed_cnt,
         "delayed_risk_rate": round((delayed_cnt / total_count) * 100, 1),
         "shipping_mode_distribution": mode_dist,

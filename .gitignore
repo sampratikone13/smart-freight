@@ -22,6 +22,9 @@ venv/
 env/
 ENV/
 .venv/
+node_modules/
+frontend/node_modules/
+frontend/dist/
 
 # Jupyter Notebook Checkpoints
 .ipynb_checkpoints/

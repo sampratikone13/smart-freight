@@ -87,16 +87,8 @@
 
         <div class="form-group">
           <label class="form-label" for="order_country">Order Country *</label>
-          <select class="form-select" id="order_country" name="Order Country" required
-                  onchange="cascadeStates(this.value)">
+          <select class="form-select" id="order_country" name="Order Country" required>
             <option value="">— Select Country —</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="order_state">Order State / Province</label>
-          <select class="form-select" id="order_state" name="Order State">
-            <option value="">— Select State —</option>
           </select>
         </div>
       </div>
@@ -236,11 +228,11 @@
     <div class="glass-card" style="margin-top:20px;font-size:.82rem;">
       <div style="font-weight:700;color:var(--cyan-light);margin-bottom:8px;">Production Inference Pipeline:</div>
       <ul style="padding-left:18px;color:var(--text-muted);line-height:1.7;">
-        <li>Median Imputer → continuous features</li>
-        <li>OneHotEncoder (handle_unknown=ignore, min_frequency=20) → categorical features</li>
-        <li>ColumnTransformer → sparse matrix</li>
-        <li>Random Forest Regressor (100 estimators, n_jobs=-1)</li>
-        <li>Saved as <code>models/production_pipeline.joblib</code></li>
+        <li>Median Imputer → continuous features (12 features)</li>
+        <li>OneHotEncoder (handle_unknown=ignore) → categorical features (8 features)</li>
+        <li>Random Forest Regressor (100 trees, max_depth=15, random_state=42)</li>
+        <li>Test Metrics: MAE = 0.887d, RMSE = 1.192d, R² = 0.472</li>
+        <li>Saved as <code>models/smart_freight_model_pipeline.joblib</code></li>
         <li>Every prediction persisted in SQLite</li>
       </ul>
     </div>
@@ -301,18 +293,11 @@ function cascadeRegions(market) {
   const regions = GEO_HIERARCHY.market_regions?.[market] || [];
   populateSelect('order_region', regions, '');
   populateSelect('order_country', [], '');
-  populateSelect('order_state', [], '');
 }
 
 function cascadeCountries(region) {
   const countries = GEO_HIERARCHY.region_countries?.[region] || [];
   populateSelect('order_country', countries, '');
-  populateSelect('order_state', [], '');
-}
-
-function cascadeStates(country) {
-  const states = GEO_HIERARCHY.country_states?.[country] || [];
-  populateSelect('order_state', states, '');
 }
 
 function cascadeCategories(dept) {
@@ -331,7 +316,7 @@ document.getElementById('btnFillSample')?.addEventListener('click', () => {
   document.getElementById('discount').value       = '0.0';
   document.getElementById('product_price').value  = '180.0';
 
-  // Cascade: Europe → Western Europe → Alemania → (first state)
+  // Cascade: Europe → Western Europe → Alemania
   const mSel = document.getElementById('market');
   mSel.value = 'Europe';
   cascadeRegions('Europe');
@@ -342,11 +327,6 @@ document.getElementById('btnFillSample')?.addEventListener('click', () => {
     setTimeout(() => {
       const cSel = document.getElementById('order_country');
       cSel.value = 'Alemania';
-      cascadeStates('Alemania');
-      setTimeout(() => {
-        const sSel = document.getElementById('order_state');
-        if (sSel.options.length > 1) sSel.selectedIndex = 1;
-      }, 150);
     }, 150);
   }, 150);
 

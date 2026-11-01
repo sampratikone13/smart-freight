@@ -26,7 +26,6 @@ FEATURE_COLUMNS = [
     'Market',
     'Order Region',
     'Order Country',
-    'Order State',
     'Category Name',
     'Department Name',
     'Order Item Quantity',

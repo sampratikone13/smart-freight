@@ -28,8 +28,10 @@ METADATA_PATH = os.path.join(MODEL_DIR, "model_metadata.json")
 MODEL_FILE_TMPL = os.path.join(MODEL_DIR, "{key}_pipeline.joblib")
 
 # Key used to locate the production model file on disk
-PRODUCTION_KEY = "production"
-PRODUCTION_MODEL_PATH = os.path.join(MODEL_DIR, "production_pipeline.joblib")
+PRODUCTION_KEY = "smart_freight_model"
+PRODUCTION_MODEL_PATH = os.path.join(MODEL_DIR, "smart_freight_model_pipeline.joblib")
+FEATURE_LIST_PATH = os.path.join(MODEL_DIR, "smart_freight_feature_list.joblib")
+PREVIOUS_PRODUCTION_MODEL_PATH = os.path.join(MODEL_DIR, "production_pipeline.joblib")
 
 
 def _build_preprocessor(numeric_features, categorical_features):
@@ -194,6 +196,9 @@ def get_loaded_pipeline():
     if os.path.exists(PRODUCTION_MODEL_PATH):
         _cached_model = joblib.load(PRODUCTION_MODEL_PATH)
         return _cached_model
+    if os.path.exists(PREVIOUS_PRODUCTION_MODEL_PATH):
+        _cached_model = joblib.load(PREVIOUS_PRODUCTION_MODEL_PATH)
+        return _cached_model
     # Not yet trained – train now
     train_and_benchmark_models(save_best=True)
     _cached_model = joblib.load(PRODUCTION_MODEL_PATH)
@@ -241,7 +246,7 @@ def predict_single(input_data: dict) -> dict:
             val = defaults.get(col, "Standard")
         row[col] = val
 
-    df_single = pd.DataFrame([row])
+    df_single = pd.DataFrame([row])[FEATURE_COLUMNS]
 
     numeric_cols = [
         "Days for shipment (scheduled)",
@@ -267,23 +272,28 @@ def predict_single(input_data: dict) -> dict:
         "Market",
         "Order Region",
         "Order Country",
-        "Order State",
         "Category Name",
         "Department Name",
     ]
     for c in str_cols:
         df_single[c] = df_single[c].astype(str).str.strip()
 
-    pred_days = float(pipeline.predict(df_single)[0])
+    pred_days_raw = float(pipeline.predict(df_single)[0])
+    pred_days_rounded = int(round(pred_days_raw))
     scheduled_days = float(row.get("Days for shipment (scheduled)", 4))
-    diff = pred_days - scheduled_days
-    speed_info = classify_shipping_speed(pred_days)
+    scheduled_days_display = int(round(scheduled_days))
+    diff_raw = pred_days_raw - scheduled_days
+    diff_display = pred_days_rounded - scheduled_days_display
+    speed_info = classify_shipping_speed(pred_days_rounded)
 
     return {
-        "predicted_shipping_days": round(pred_days, 2),
-        "scheduled_shipping_days": round(scheduled_days, 2),
-        "difference_days": round(diff, 2),
-        "is_delayed_risk": bool(diff > 0.3),
+        "predicted_shipping_days": pred_days_rounded,
+        "predicted_shipping_days_raw": round(pred_days_raw, 4),
+        "scheduled_shipping_days": scheduled_days_display,
+        "scheduled_shipping_days_raw": scheduled_days,
+        "difference_days": diff_display,
+        "difference_days_raw": round(diff_raw, 4),
+        "is_delayed_risk": bool(diff_raw > 0.3),
         "speed_category": speed_info["category"],
         "badge_class": speed_info["badge_class"],
         "icon": speed_info["icon"],
@@ -343,18 +353,19 @@ def predict_batch(df_input: pd.DataFrame) -> pd.DataFrame:
         "Market",
         "Order Region",
         "Order Country",
-        "Order State",
         "Category Name",
         "Department Name",
     ]
     for c in str_cols:
         df_features[c] = df_features[c].astype(str).str.strip()
 
+    df_features = df_features[FEATURE_COLUMNS]
     preds = pipeline.predict(df_features)
     df_result = df_input.copy()
-    df_result["predicted_shipping_days"] = np.round(preds, 2)
+    df_result["predicted_shipping_days_raw"] = np.round(preds, 4)
+    df_result["predicted_shipping_days"] = np.round(preds).astype(int)
     df_result["shipping_speed_category"] = [
-        classify_shipping_speed(p)["category"] for p in preds
+        classify_shipping_speed(round(p))["category"] for p in preds
     ]
     return df_result
 
